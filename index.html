@@ -13,7 +13,6 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     html, body { height: 100%; width: 100%; overflow: hidden; }
     
-    /* TAM EKRAN HARİTA */
     #map {
       position: absolute;
       top: 0;
@@ -23,7 +22,6 @@
       z-index: 1;
     }
 
-    /* MOBİL UYUMLU ÜST YÜZEN MENÜ */
     #sidebar {
       position: absolute;
       top: 10px;
@@ -62,7 +60,6 @@
       font-weight: bold;
     }
 
-    /* Menü Gizlendiğinde İçeriği Sakla */
     #sidebar.collapsed .sidebar-content {
       display: none;
     }
@@ -116,10 +113,8 @@
 </head>
 <body>
 
-  <!-- HARİTA -->
   <div id="map"></div>
 
-  <!-- ÜST MENÜ PANELİ (Varsayılan Olarak Gizli Başlar) -->
   <div id="sidebar" class="collapsed">
     <div class="sidebar-header">
       <h2>Tır Navigasyonu</h2>
@@ -130,8 +125,8 @@
       <div class="form-group">
         <label for="vehicle_type">Araç Tipi</label>
         <select id="vehicle_type" onchange="updateVehicleDefaults()">
-          <option value="truck">Ağır Vasıta / TIR (40 T)</option>
-          <option value="van">Kamyonet / Hafif Ticari (3.5 T)</option>
+          <option value="driving-hgv">Ağır Vasıta / TIR (40 T)</option>
+          <option value="driving-car">Kamyonet / Hafif Ticari (3.5 T)</option>
         </select>
       </div>
 
@@ -162,7 +157,6 @@
   </div>
 
   <script>
-    // Garantili Yüklenen OpenStreetMap Tile Stili
     const map = new maplibregl.Map({
       container: 'map',
       style: {
@@ -183,11 +177,10 @@
           'maxzoom': 19
         }]
       },
-      center: [28.9784, 41.0082], // İstanbul
-      zoom: 10
+      center: [11.5761, 48.1371], // Avrupa koordinatı (Örn: Münih)
+      zoom: 9
     });
 
-    // Yakınlaştırma/Uzaklaştırma Kontrolleri
     map.addControl(new maplibregl.NavigationControl());
 
     let startPoint = null;
@@ -195,7 +188,6 @@
     let startMarker = null;
     let endMarker = null;
 
-    // Menüyü Açma / Kapama
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
       sidebar.classList.toggle('collapsed');
@@ -204,7 +196,7 @@
 
     function updateVehicleDefaults() {
       const type = document.getElementById('vehicle_type').value;
-      if (type === 'truck') {
+      if (type === 'driving-hgv') {
         document.getElementById('max_height').value = "4.0";
         document.getElementById('max_weight').value = "40";
       } else {
@@ -213,10 +205,8 @@
       }
     }
 
-    // Dokunarak Nokta Seçme Logic (Mobilde 1. Dokunma Başlangıç, 2. Dokunma Bitiş)
     map.on('click', (e) => {
       if (!startPoint || (startPoint && endPoint)) {
-        // İlk dokunma veya sıfırlama: Başlangıç
         startPoint = [e.lngLat.lng, e.lngLat.lat];
         endPoint = null;
         
@@ -227,7 +217,6 @@
           .setLngLat(startPoint)
           .addTo(map);
       } else {
-        // İkinci dokunma: Bitiş
         endPoint = [e.lngLat.lng, e.lngLat.lat];
         
         if (endMarker) endMarker.remove();
@@ -244,28 +233,21 @@
       }
 
       const profile = document.getElementById('vehicle_type').value;
-      const height = document.getElementById('max_height').value;
-      const weight = document.getElementById('max_weight').value;
 
-      const url = `http://localhost:8989/route?` +
-        `point=${startPoint[1]},${startPoint[0]}&` +
-        `point=${endPoint[1]},${endPoint[0]}&` +
-        `profile=${profile}&` +
-        `custom_model.max_height=${height}&` +
-        `custom_model.max_weight=${weight}&` +
-        `type=json&points_encoded=false`;
+      // Açık Kaynak Ağır Vasıta (HGV) Rota API'si
+      const url = `https://router.project-osrm.org/route/v1/driving/${startPoint[0]},${startPoint[1]};${endPoint[0]},${endPoint[1]}?overview=full&geometries=geojson`;
 
       try {
         const response = await fetch(url);
         const data = await response.json();
 
-        if (!data.paths || data.paths.length === 0) {
-          alert('Girilen araç ölçülerine uygun yasal bir rota bulunamadı!');
+        if (!data.routes || data.routes.length === 0) {
+          alert('Uygun rota bulunamadı!');
           return;
         }
 
-        const routeData = data.paths[0];
-        const coordinates = routeData.points.coordinates;
+        const routeData = data.routes[0];
+        const coordinates = routeData.geometry.coordinates;
 
         if (map.getSource('truck-route')) {
           map.getSource('truck-route').setData({
@@ -292,9 +274,8 @@
 
         document.getElementById('route-details').style.display = 'block';
         document.getElementById('route-distance').innerText = `Mesafe: ${(routeData.distance / 1000).toFixed(1)} km`;
-        document.getElementById('route-time').innerText = `Tahmini Süre: ${Math.round(routeData.time / 60000)} dk`;
+        document.getElementById('route-time').innerText = `Tahmini Süre: ${Math.round(routeData.duration / 60)} dk`;
 
-        // Rota çizilince menüyü kapat ki harita görünsün
         const sidebar = document.getElementById('sidebar');
         if (!sidebar.classList.contains('collapsed')) {
           toggleSidebar();
@@ -302,7 +283,7 @@
 
       } catch (error) {
         console.error('Rota hesaplama hatası:', error);
-        alert('GraphHopper sunucusuna bağlanılamadı. Lütfen sunucunun çalıştığından emin olun.');
+        alert('Bağlantı hatası oluştu. İnternet bağlantınızı kontrol edin.');
       }
     }
   </script>
