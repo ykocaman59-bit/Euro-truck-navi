@@ -93,20 +93,36 @@
       cursor: pointer;
     }
 
-    /* YOLCULUĞA BAŞLA / BİTİR BUTONLARI */
-    .btn-start {
-      background: #22c55e !important;
-      font-size: 0.95rem;
-      padding: 12px;
+    /* EKRANIN ALTINDA BELİREN BAŞLATMA PANELİ */
+    #bottom-start-bar {
+      position: absolute;
+      bottom: 20px;
+      left: 15px;
+      right: 15px;
+      background: #0f172a;
+      border: 2px solid #22c55e;
+      padding: 15px;
+      border-radius: 14px;
+      z-index: 15;
+      display: none;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+      text-align: center;
     }
 
-    .btn-stop {
-      background: #ef4444 !important;
-      font-size: 0.95rem;
-      padding: 12px;
+    .btn-start-action {
+      width: 100%;
+      background: #22c55e;
+      color: white;
+      font-size: 1.1rem;
+      font-weight: bold;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
     }
 
-    /* NAVİGASYON BİLGİ PANELİ (SÜRÜŞ ESNASINDA) */
+    /* NAVİGASYON BİLGİ PANELİ (SÜRÜŞ ANINDA) */
     #nav-banner {
       position: absolute;
       top: 10px;
@@ -125,6 +141,14 @@
     #nav-banner .instruction { font-size: 1.1rem; font-weight: bold; color: #38bdf8; }
     #nav-banner .sub-info { font-size: 0.85rem; color: #94a3b8; margin-top: 4px; }
 
+    .btn-stop {
+      background: #ef4444 !important;
+      font-size: 0.9rem;
+      padding: 10px;
+      margin-top: 10px;
+      width: 100%;
+    }
+
     #info-panel {
       background: #334155;
       padding: 8px;
@@ -138,18 +162,24 @@
 
   <div id="map"></div>
 
-  <!-- BİLGİ VE YÖNLENDİRME BANNERI (CANLI NAVİGASYON İÇİN) -->
+  <!-- CANLI SÜRÜŞ ESNASINDA ÜSTTE AÇILAN SESLİ/YAZILI YÖNLENDİRME -->
   <div id="nav-banner">
     <div id="nav-instruction" class="instruction">Hazırlanıyor...</div>
     <div id="nav-sub" class="sub-info">Kalan Mesafe: -- km</div>
-    <button class="btn-submit btn-stop" style="margin-top: 10px; width: 100%;" onclick="stopNavigation()">Yolculuğu Bitir</button>
+    <button class="btn-submit btn-stop" onclick="stopNavigation()">Yolculuğu Bitir</button>
   </div>
 
-  <!-- AYARLAR VE KONTROL MENÜSÜ -->
-  <div id="sidebar" class="collapsed">
+  <!-- ROTA ÇİZİLDİĞİNDE EKRANIN ALTINDA ÇIKAN BAŞLAT BUTONU -->
+  <div id="bottom-start-bar">
+    <div style="color:#fff; font-size:0.9rem; margin-bottom:8px;" id="route-summary-text">Rota Hesaplandı</div>
+    <button class="btn-start-action" onclick="startNavigation()">▶ YOLCULUĞA BAŞLA</button>
+  </div>
+
+  <!-- AYARLAR MENÜSÜ -->
+  <div id="sidebar">
     <div class="sidebar-header">
       <h2>Tır Navigasyonu</h2>
-      <button type="button" class="toggle-btn" onclick="toggleSidebar()">Ayarlar / Menü</button>
+      <button type="button" class="toggle-btn" onclick="toggleSidebar()">Kapat / Aç</button>
     </div>
     
     <div class="sidebar-content">
@@ -172,23 +202,17 @@
       </div>
 
       <button class="btn-submit" onclick="calculateRoute()">Yasakları Eleyerek Rota Hesapla</button>
-      <button id="btn-start-nav" class="btn-submit btn-start" style="display:none;" onclick="startNavigation()">▶ Yolculuğa Başla</button>
 
       <div id="info-panel">
         <strong>Seçim Yöntemi:</strong><br>
         • Haritada 1. Dokunma: Başlangıç (Yeşil)<br>
         • Haritada 2. Dokunma: Bitiş (Kırmızı)
       </div>
-
-      <div id="route-details" style="display:none; background:#0f172a; padding:8px; border-radius:6px; font-size:0.8rem;">
-        <strong style="color:#38bdf8;">Rota Detayı:</strong>
-        <p id="route-distance"></p>
-        <p id="route-time"></p>
-      </div>
     </div>
   </div>
 
   <script>
+    // Türkiye / İstanbul Merkezli Başlangıç
     const map = new maplibregl.Map({
       container: 'map',
       style: {
@@ -209,8 +233,8 @@
           'maxzoom': 19
         }]
       },
-      center: [28.9784, 41.0082],
-      zoom: 10
+      center: [28.9784, 41.0082], // İstanbul
+      zoom: 11
     });
 
     map.addControl(new maplibregl.NavigationControl());
@@ -230,10 +254,10 @@
       setTimeout(() => { map.resize(); }, 300);
     }
 
-    // Sesli Türkçe Yönlendirme
+    // Sesli Türkçe Yönlendirme Fonksiyonu
     function speakText(text) {
       if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel(); // Önceki seslendirmeyi durdur
+        window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'tr-TR';
         utterance.rate = 1.0;
@@ -241,14 +265,14 @@
       }
     }
 
-    // Haritada Nokta Seçimi
+    // Dokunarak Nokta Seçimi
     map.on('click', (e) => {
-      if (watchPositionId) return; // Navigasyon açıkken nokta seçtirme
+      if (watchPositionId) return; // Sürüş anında nokta seçtirmez
 
       if (!startPoint || (startPoint && endPoint)) {
         startPoint = [e.lngLat.lng, e.lngLat.lat];
         endPoint = null;
-        document.getElementById('btn-start-nav').style.display = 'none';
+        document.getElementById('bottom-start-bar').style.display = 'none';
         
         if (startMarker) startMarker.remove();
         if (endMarker) endMarker.remove();
@@ -311,34 +335,33 @@
           });
         }
 
-        document.getElementById('route-details').style.display = 'block';
-        document.getElementById('route-distance').innerText = `Mesafe: ${(routeData.distance / 1000).toFixed(1)} km`;
-        document.getElementById('route-time').innerText = `Tahmini Süre: ${Math.round(routeData.duration / 60)} dk`;
-        
-        // Yolculuğa Başla Butonunu Göster
-        document.getElementById('btn-start-nav').style.display = 'block';
+        // Üst menüyü gizle ve alt tarafta DEV Yolculuğa Başla Butonunu göster
+        document.getElementById('sidebar').classList.add('collapsed');
+        document.getElementById('bottom-start-bar').style.display = 'block';
+        document.getElementById('route-summary-text').innerText = 
+          `Mesafe: ${(routeData.distance / 1000).toFixed(1)} km | Tahmini Süre: ${Math.round(routeData.duration / 60)} dk`;
 
       } catch (error) {
         console.error('Rota hatası:', error);
-        alert('Rota hesaplanırken bir hata oluştu.');
+        alert('Rota hesaplanırken bir sorun oluştu.');
       }
     }
 
-    // Canlı Navigasyonu Başlat
+    // Canlı Navigasyon Başlat
     function startNavigation() {
       if (!navigator.geolocation) {
         alert('Cihazınız GPS konum servisini desteklemiyor.');
         return;
       }
 
-      document.getElementById('sidebar').classList.add('collapsed');
+      document.getElementById('bottom-start-bar').style.display = 'none';
       document.getElementById('nav-banner').style.display = 'block';
       
       speakText("Navigasyon başlatılıyor. Güvenli sürüşler dilerim.");
 
       currentStepIndex = 0;
 
-      // Konum Takibini Başlat
+      // Canlı GPS Takibi
       watchPositionId = navigator.geolocation.watchPosition(
         updateNavigation,
         (error) => console.error(error),
@@ -346,22 +369,20 @@
       );
     }
 
-    // Canlı Konum Güncelleme Ve Yönlendirme Mantığı
+    // Canlı Takip Ve Sesli Anons
     function updateNavigation(position) {
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
       const heading = position.coords.heading || 0;
 
-      // Haritada Aracı Güncelle
       if (!userMarker) {
         const el = document.createElement('div');
-        el.className = 'user-location-marker';
-        el.style.width = '20px';
-        el.style.height = '20px';
+        el.style.width = '22px';
+        el.style.height = '22px';
         el.style.backgroundColor = '#38bdf8';
         el.style.border = '3px solid white';
         el.style.borderRadius = '50%';
-        el.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
+        el.style.boxShadow = '0 0 12px rgba(0,0,0,0.6)';
 
         userMarker = new maplibregl.Marker({ element: el })
           .setLngLat([lng, lat])
@@ -370,19 +391,18 @@
         userMarker.setLngLat([lng, lat]);
       }
 
-      // Kamerayı Sürücü Açısına Göre Döndür ve Yakınlaştır
+      // Kamerayı 3D Sürüş Açısına Getir
       map.flyTo({
         center: [lng, lat],
         zoom: 17,
-        pitch: 50, // 3D Görünüm
+        pitch: 55,
         bearing: heading,
         speed: 1.2
       });
 
-      // Yol Tarifi Kontrolü
       if (routeSteps.length > 0 && currentStepIndex < routeSteps.length) {
         const step = routeSteps[currentStepIndex];
-        const stepLocation = step.maneuver.location; // [lng, lat]
+        const stepLocation = step.maneuver.location;
         const distToStep = getDistanceInMeters(lat, lng, stepLocation[1], stepLocation[0]);
 
         const instructionText = translateInstruction(step.maneuver.type, step.maneuver.modifier, step.name);
@@ -390,27 +410,24 @@
         document.getElementById('nav-instruction').innerText = instructionText;
         document.getElementById('nav-sub').innerText = `Manevraya ${Math.round(distToStep)} metre kaldı`;
 
-        // Manevraya 50 metre kala sesli uyarı ver ve bir sonraki adıma geç
-        if (distToStep < 50) {
+        if (distToStep < 40) {
           speakText(instructionText);
           currentStepIndex++;
         }
       }
     }
 
-    // Türkçe Yol Tarifi Çevirici
     function translateInstruction(type, modifier, roadName) {
       let street = roadName ? `${roadName} yönüne` : '';
       if (type === 'turn') {
-        if (modifier.includes('right')) return `${street} Sağa dönün`;
-        if (modifier.includes('left')) return `${street} Sola dönün`;
+        if (modifier && modifier.includes('right')) return `${street} Sağa dönün`;
+        if (modifier && modifier.includes('left')) return `${street} Sola dönün`;
       }
       if (type === 'depart') return 'Yola çıkın ve ilerleyin';
       if (type === 'arrive') return 'Hedefinize ulaştınız!';
       return 'Düz ilerleyin';
     }
 
-    // İki Konum Arası Mesafe Hesaplama (Metre)
     function getDistanceInMeters(lat1, lon1, lat2, lon2) {
       const R = 6371e3;
       const φ1 = lat1 * Math.PI / 180;
@@ -426,14 +443,13 @@
       return R * c;
     }
 
-    // Navigasyonu Sonlandır
     function stopNavigation() {
       if (watchPositionId) {
         navigator.geolocation.clearWatch(watchPositionId);
         watchPositionId = null;
       }
       document.getElementById('nav-banner').style.display = 'none';
-      map.easeTo({ pitch: 0, bearing: 0, zoom: 10 });
+      map.easeTo({ pitch: 0, bearing: 0, zoom: 11 });
       speakText("Yolculuk sonlandırıldı.");
     }
   </script>
