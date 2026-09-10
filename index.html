@@ -3,62 +3,79 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Tır Navigasyonu</title>
+  <title>Gelişmiş Tır Navigasyonu</title>
   
-  <!-- MapLibre GL CSS ve JS -->
   <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
   <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
   
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     html, body { height: 100%; width: 100%; overflow: hidden; background: #000; }
     #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
 
-    /* SOL ÜST YÖN TARİFİ KUTUSU */
+    /* SOL ÜST YANDEX STİLİ MANEVRA KARTI */
     #turn-card {
       position: absolute;
       top: 15px;
       left: 15px;
-      width: 220px;
       background: #0260e8;
       color: #fff;
-      padding: 14px;
+      padding: 12px 16px;
       border-radius: 16px;
       z-index: 20;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
       display: none;
+      min-width: 180px;
     }
-    .turn-row { display: flex; align-items: center; gap: 10px; }
-    .turn-icon { font-size: 2rem; font-weight: bold; line-height: 1; }
+    .turn-row { display: flex; align-items: center; gap: 12px; }
+    .turn-icon { font-size: 2.2rem; font-weight: bold; line-height: 1; }
     .turn-dist { font-size: 1.8rem; font-weight: 800; }
-    .street-name { font-size: 0.95rem; font-weight: 600; margin-top: 4px; color: #e2e8f0; }
-    .next-step { font-size: 0.75rem; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 8px; margin-top: 8px; }
+    .street-name { font-size: 0.9rem; font-weight: 600; margin-top: 4px; color: #e2e8f0; }
 
-    /* SAĞ ÜST HIZ GÖSTERGESİ */
+    /* SAĞ ÜST HIZ PANELİ */
     #speed-container {
       position: absolute;
       top: 15px;
       right: 15px;
       display: none;
-      gap: 10px;
+      gap: 8px;
       z-index: 20;
     }
     .speed-circle {
-      width: 50px;
-      height: 50px;
+      width: 48px;
+      height: 48px;
       background: #fff;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: bold;
+      font-weight: 800;
       color: #000;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
     .speed-limit { border: 4px solid #dc2626; }
 
-    /* ALT VARIŞ BİLGİ BARI */
+    /* SAĞ ALT MERKEZE HİZALA (RE-CENTER) BUTONU */
+    #recenter-btn {
+      position: absolute;
+      bottom: 90px;
+      right: 15px;
+      width: 48px;
+      height: 48px;
+      background: #ffffff;
+      border-radius: 50%;
+      border: none;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+      z-index: 25;
+      cursor: pointer;
+    }
+
+    /* ALT VARIŞ / BİLGİ PANELİ */
     #bottom-bar {
       position: absolute;
       bottom: 20px;
@@ -74,12 +91,12 @@
       justify-content: space-between;
       box-shadow: 0 10px 25px rgba(0,0,0,0.3);
     }
-    .nav-info { display: flex; gap: 15px; align-items: baseline; }
+    .nav-info { display: flex; gap: 12px; align-items: baseline; }
     .info-dist { font-size: 1.2rem; font-weight: 800; }
     .info-time { font-size: 1.2rem; font-weight: 800; color: #16a34a; }
     .btn-stop-icon { background: #f1f5f9; border: none; width: 36px; height: 36px; border-radius: 50%; font-weight: bold; cursor: pointer; }
 
-    /* AYAR MENÜSÜ */
+    /* BAŞLANGIÇ AYAR PANELİ */
     #setup-panel {
       position: absolute;
       bottom: 20px;
@@ -101,7 +118,7 @@
       width: 0; height: 0;
       border-left: 12px solid transparent;
       border-right: 12px solid transparent;
-      border-bottom: 24px solid #eab308;
+      border-bottom: 24px solid #f59e0b;
       filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
     }
   </style>
@@ -110,35 +127,36 @@
 
   <div id="map"></div>
 
-  <!-- SOL ÜST MANEVRA PANELİ -->
+  <!-- MANEVRA TABELASI -->
   <div id="turn-card">
     <div class="turn-row">
-      <span id="turn-arrow" class="turn-icon">↰</span>
+      <span id="turn-arrow" class="turn-icon">➔</span>
       <span id="turn-dist" class="turn-dist">0 m</span>
     </div>
-    <div id="street-name" class="street-name">Yola Çıkın</div>
-    <div id="next-step" class="next-step">sonra ➔</div>
+    <div id="street-name" class="street-name">Düz İlerleyin</div>
   </div>
 
-  <!-- SAĞ ÜST HIZ LİMİTİ VE ANLIK HIZ -->
+  <!-- HIZ GÖSTERGESİ -->
   <div id="speed-container">
     <div class="speed-circle"><span id="live-speed">0</span></div>
     <div class="speed-circle speed-limit"><span>50</span></div>
   </div>
 
+  <!-- MERKEZE HİZALA BUTONU -->
+  <button id="recenter-btn" onclick="recenterMap()">🎯</button>
+
   <!-- ALT BİLGİ PANELİ -->
   <div id="bottom-bar">
     <div class="nav-info">
       <span id="info-dist" class="info-dist">0 km</span>
-      <span id="info-eta" style="color:#64748b; font-weight:600;">00:00</span>
       <span id="info-time" class="info-time">0 dk</span>
     </div>
     <button class="btn-stop-icon" onclick="stopNav()">✕</button>
   </div>
 
-  <!-- BAŞLANGIÇ AYARLARI -->
+  <!-- BAŞLANGIÇ PANELİ -->
   <div id="setup-panel">
-    <h3 style="font-size:0.95rem; color:#38bdf8;">Tır Yasaklı Rota Ayarları</h3>
+    <h3 style="font-size:0.95rem; color:#38bdf8;">Tır Rotası Hesaplayıcı</h3>
     <div class="input-group">
       <select id="v_type">
         <option value="hgv">Ağır Vasıta / TIR</option>
@@ -147,7 +165,7 @@
       <input type="number" id="v_height" value="4.0" placeholder="Yükseklik (m)" step="0.1">
       <input type="number" id="v_weight" value="40" placeholder="Ağırlık (Ton)">
     </div>
-    <button class="btn-action" onclick="calcRoute()">Tır Rotası Hesapla</button>
+    <button class="btn-action" onclick="calcRoute()">Tır Rotası Oluştur</button>
     <button id="btn-start-drive" class="btn-action" style="background:#16a34a; display:none;" onclick="startNav()">▶ YOLCULUĞA BAŞLA</button>
   </div>
 
@@ -172,6 +190,16 @@
     let startPt = null, endPt = null;
     let startMkr = null, endMkr = null, userMkr = null;
     let watchId = null, routeSteps = [], stepIdx = 0;
+    let isUserTracking = true;
+    let lastPosition = null;
+
+    // Kullanıcı haritayı elle kaydırırsa takibi geçici durdur ve ortalama butonunu göster
+    map.on('dragstart', () => {
+      if (watchId) {
+        isUserTracking = false;
+        document.getElementById('recenter-btn').style.display = 'flex';
+      }
+    });
 
     // Haritadan Nokta Seçimi
     map.on('click', (e) => {
@@ -190,7 +218,7 @@
       }
     });
 
-    // Rota Çizimi ve Adım Verilerinin Alınması
+    // Rota Çizimi
     async function calcRoute() {
       if (!startPt || !endPt) return alert('Lütfen haritaya dokunarak başlangıç ve bitiş seçin.');
 
@@ -212,7 +240,7 @@
             id: 'route-line',
             type: 'line',
             source: 'route-line',
-            paint: { 'line-color': '#16a34a', 'line-width': 8 }
+            paint: { 'line-color': '#22c55e', 'line-width': 8 }
           });
         }
 
@@ -231,7 +259,7 @@
       document.getElementById('speed-container').style.display = 'flex';
       document.getElementById('bottom-bar').style.display = 'flex';
 
-      speak("Tır navigasyonu başladı.");
+      speak("Sürüş başladı.");
 
       const arrowDiv = document.createElement('div');
       arrowDiv.className = 'nav-arrow';
@@ -244,26 +272,38 @@
       });
     }
 
-    // Canlı Sürüş Güncellemesi
+    // Canlı Takip & Kamera Açı Dönüşü
     function updatePos(pos) {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
       const spd = Math.round((pos.coords.speed || 0) * 3.6);
       const head = pos.coords.heading || 0;
 
+      lastPosition = { lat, lng, head };
       document.getElementById('live-speed').innerText = spd;
+      
       userMkr.setLngLat([lng, lat]);
       userMkr.getElement().style.transform = `rotate(${head}deg)`;
 
-      map.flyTo({ center: [lng, lat], zoom: 18, pitch: 60, bearing: head });
+      // Kamera kilidi aktifse aracı merkeze alıp 3D açıda takip eder
+      if (isUserTracking) {
+        map.flyTo({
+          center: [lng, lat],
+          zoom: 18,
+          pitch: 60,
+          bearing: head,
+          speed: 1.2
+        });
+      }
 
+      // Adım Adım Manevra Takibi
       if (routeSteps[stepIdx]) {
         const step = routeSteps[stepIdx];
         const dist = calcDist(lat, lng, step.maneuver.location[1], step.maneuver.location[0]);
 
         document.getElementById('turn-dist').innerText = `${Math.round(dist)} m`;
         document.getElementById('street-name').innerText = step.name || 'Sokak';
-        document.getElementById('turn-arrow').innerText = getTurnSymbol(step.maneuver.modifier);
+        document.getElementById('turn-arrow').innerText = getTurnSymbol(step.maneuver.type, step.maneuver.modifier);
 
         if (dist < 30) {
           speak(`${step.name || 'yola'} dönün`);
@@ -272,7 +312,23 @@
       }
     }
 
-    function getTurnSymbol(mod) {
+    // Haritayı Tekrar Araca Odaklama (Ortalama)
+    function recenterMap() {
+      isUserTracking = true;
+      document.getElementById('recenter-btn').style.display = 'none';
+      if (lastPosition) {
+        map.flyTo({
+          center: [lastPosition.lng, lastPosition.lat],
+          zoom: 18,
+          pitch: 60,
+          bearing: lastPosition.head,
+          speed: 1.5
+        });
+      }
+    }
+
+    function getTurnSymbol(type, mod) {
+      if (type === 'roundabout') return '🔄';
       if (!mod) return '➔';
       if (mod.includes('right')) return '↱';
       if (mod.includes('left')) return '↰';
