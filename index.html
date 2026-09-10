@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Tır & Kamyonet Profesyonel Navigasyon Sistemi</title>
   
   <!-- MapLibre GL CSS ve JS -->
@@ -11,18 +11,35 @@
   
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { display: flex; height: 100vh; overflow: hidden; position: relative; }
+    html, body { height: 100%; width: 100%; overflow: hidden; }
     
+    /* TAM EKRAN HARİTA */
+    #map {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* MOBİL UYUMLU ÜST YÜZEN MENÜ */
     #sidebar {
-      width: 360px;
-      background: #1e293b;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      max-width: 380px;
+      background: rgba(30, 41, 59, 0.95);
+      backdrop-filter: blur(8px);
       color: #fff;
-      padding: 20px;
+      padding: 12px;
+      border-radius: 12px;
       display: flex;
       flex-direction: column;
-      gap: 15px;
+      gap: 10px;
       z-index: 10;
-      box-shadow: 4px 0 15px rgba(0,0,0,0.3);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
       transition: all 0.3s ease;
     }
 
@@ -30,114 +47,83 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 2px solid #334155;
-      padding-bottom: 10px;
     }
 
-    h2 { font-size: 1.2rem; color: #38bdf8; }
+    h2 { font-size: 1rem; color: #38bdf8; }
     
     .toggle-btn {
-      background: #334155;
-      color: #38bdf8;
-      border: 1px solid #475569;
+      background: #0284c7;
+      color: #fff;
+      border: none;
       padding: 6px 12px;
       border-radius: 6px;
       font-size: 0.8rem;
       cursor: pointer;
       font-weight: bold;
     }
-    .toggle-btn:hover { background: #475569; }
+
+    /* Menü Gizlendiğinde İçeriği Sakla */
+    #sidebar.collapsed .sidebar-content {
+      display: none;
+    }
 
     .sidebar-content {
       display: flex;
       flex-direction: column;
-      gap: 15px;
+      gap: 10px;
+      margin-top: 5px;
+      border-top: 1px solid #334155;
+      padding-top: 10px;
     }
 
-    .form-group { display: flex; flex-direction: column; gap: 5px; }
-    label { font-size: 0.85rem; color: #94a3b8; }
-    input, select, button.btn-submit {
-      padding: 10px;
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    label { font-size: 0.75rem; color: #94a3b8; }
+    input, select {
+      padding: 8px;
       border-radius: 6px;
       border: 1px solid #475569;
       background: #0f172a;
       color: #fff;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
 
     button.btn-submit {
+      padding: 10px;
+      border-radius: 6px;
       background: #0284c7;
       color: white;
       font-weight: bold;
       border: none;
       cursor: pointer;
       margin-top: 5px;
-      transition: background 0.2s;
     }
-    button.btn-submit:hover { background: #0369a1; }
 
     #info-panel {
       background: #334155;
-      padding: 12px;
+      padding: 8px;
       border-radius: 6px;
-      font-size: 0.85rem;
-      line-height: 1.4;
+      font-size: 0.75rem;
+      line-height: 1.3;
     }
 
-    #map { flex: 1; height: 100%; width: 100%; }
-
-    .instruction-box {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(15, 23, 42, 0.9);
-      color: #fff;
-      padding: 10px 15px;
+    #route-details {
+      background: #0f172a;
+      padding: 8px;
       border-radius: 6px;
-      font-size: 0.85rem;
-      pointer-events: none;
-      z-index: 5;
-    }
-
-    /* MOBİL DÜZENLEMELERİ */
-    @media (max-width: 768px) {
-      body { flex-direction: column; }
-      
-      #sidebar {
-        width: 100%;
-        max-height: 80vh;
-        position: absolute;
-        top: 0;
-        left: 0;
-        overflow-y: auto;
-        border-bottom-left-radius: 12px;
-        border-bottom-right-radius: 12px;
-      }
-
-      /* Mobilde panel gizlendiğinde sadece üst başlık kalır */
-      #sidebar.collapsed .sidebar-content {
-        display: none;
-      }
-
-      #sidebar.collapsed {
-        padding: 12px 20px;
-      }
-
-      .instruction-box {
-        top: auto;
-        bottom: 10px;
-        right: 10px;
-        font-size: 0.75rem;
-      }
+      font-size: 0.8rem;
     }
   </style>
 </head>
 <body>
 
-  <div id="sidebar">
+  <!-- HARİTA -->
+  <div id="map"></div>
+
+  <!-- ÜST MENÜ PANELİ (Varsayılan Olarak Gizli Başlar) -->
+  <div id="sidebar" class="collapsed">
     <div class="sidebar-header">
-      <h2>Tır Navigasyon Ayarları</h2>
-      <button type="button" class="toggle-btn" onclick="toggleSidebar()">Menüyü Gizle / Aç</button>
+      <h2>Tır Navigasyonu</h2>
+      <button type="button" class="toggle-btn" onclick="toggleSidebar()">Ayarlar / Menü</button>
     </div>
     
     <div class="sidebar-content">
@@ -155,55 +141,67 @@
       </div>
 
       <div class="form-group">
-        <label for="max_weight">Araç Toplam Ağırlığı (Ton)</label>
+        <label for="max_weight">Araç Ağırlığı (Ton)</label>
         <input type="number" id="max_weight" value="40" step="0.5" min="1">
       </div>
 
       <button class="btn-submit" onclick="calculateRoute()">Yasakları Eleyerek Rota Hesapla</button>
 
       <div id="info-panel">
-        <strong>Kullanım:</strong><br>
-        • Haritada <u>Sol Tık</u>: Başlangıç Noktası<br>
-        • Haritada <u>Sağ Tık</u>: Bitiş Noktası
+        <strong>Seçim Yöntemi:</strong><br>
+        • Haritada 1. Dokunma: Başlangıç (Yeşil)<br>
+        • Haritada 2. Dokunma: Bitiş (Kırmızı)
       </div>
 
       <div id="route-details" style="display:none;">
-        <h3>Rota Özeti</h3>
+        <strong style="color:#38bdf8;">Rota Detayı:</strong>
         <p id="route-distance"></p>
         <p id="route-time"></p>
       </div>
     </div>
   </div>
 
-  <div class="instruction-box">Tır ve Kamyonet Yasaklı Yollar Otomatik Elenir</div>
-  <div id="map"></div>
-
   <script>
-    // MapLibre Harita Kurulumu
+    // Garantili Yüklenen OpenStreetMap Tile Stili
     const map = new maplibregl.Map({
       container: 'map',
-      style: 'https://demotiles.maplibre.org/style.json',
-      center: [28.9784, 41.0082], // İstanbul merkezli başlama
+      style: {
+        'version': 8,
+        'sources': {
+          'raster-tiles': {
+            'type': 'raster',
+            'tiles': ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            'tileSize': 256,
+            'attribution': '&copy; OpenStreetMap'
+          }
+        },
+        'layers': [{
+          'id': 'simple-tiles',
+          'type': 'raster',
+          'source': 'raster-tiles',
+          'minzoom': 0,
+          'maxzoom': 19
+        }]
+      },
+      center: [28.9784, 41.0082], // İstanbul
       zoom: 10
     });
+
+    // Yakınlaştırma/Uzaklaştırma Kontrolleri
+    map.addControl(new maplibregl.NavigationControl());
 
     let startPoint = null;
     let endPoint = null;
     let startMarker = null;
     let endMarker = null;
 
-    // Sidebar Gizleme/Açma Fonksiyonu
+    // Menüyü Açma / Kapama
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
       sidebar.classList.toggle('collapsed');
-      
-      // Haritanın boyutu değiştiği için yeniden boyutlandır
-      setTimeout(() => {
-        map.resize();
-      }, 300);
+      setTimeout(() => { map.resize(); }, 300);
     }
 
-    // Araç tipi değiştikçe varsayılan ölçüleri güncelleme
     function updateVehicleDefaults() {
       const type = document.getElementById('vehicle_type').value;
       if (type === 'truck') {
@@ -215,28 +213,33 @@
       }
     }
 
-    // Haritaya tıklayarak başlangıç noktası belirleme (Sol Tık)
+    // Dokunarak Nokta Seçme Logic (Mobilde 1. Dokunma Başlangıç, 2. Dokunma Bitiş)
     map.on('click', (e) => {
-      startPoint = [e.lngLat.lng, e.lngLat.lat];
-      if (startMarker) startMarker.remove();
-      startMarker = new maplibregl.Marker({ color: '#22c55e' })
-        .setLngLat(startPoint)
-        .addTo(map);
+      if (!startPoint || (startPoint && endPoint)) {
+        // İlk dokunma veya sıfırlama: Başlangıç
+        startPoint = [e.lngLat.lng, e.lngLat.lat];
+        endPoint = null;
+        
+        if (startMarker) startMarker.remove();
+        if (endMarker) endMarker.remove();
+        
+        startMarker = new maplibregl.Marker({ color: '#22c55e' })
+          .setLngLat(startPoint)
+          .addTo(map);
+      } else {
+        // İkinci dokunma: Bitiş
+        endPoint = [e.lngLat.lng, e.lngLat.lat];
+        
+        if (endMarker) endMarker.remove();
+        endMarker = new maplibregl.Marker({ color: '#ef4444' })
+          .setLngLat(endPoint)
+          .addTo(map);
+      }
     });
 
-    // Haritaya tıklayarak bitiş noktası belirleme (Sağ Tık)
-    map.on('contextmenu', (e) => {
-      endPoint = [e.lngLat.lng, e.lngLat.lat];
-      if (endMarker) endMarker.remove();
-      endMarker = new maplibregl.Marker({ color: '#ef4444' })
-        .setLngLat(endPoint)
-        .addTo(map);
-    });
-
-    // GraphHopper Backend API'sine İstek Atma
     async function calculateRoute() {
       if (!startPoint || !endPoint) {
-        alert('Lütfen haritadan sol tık ile başlangıç, sağ tık ile bitiş noktası seçin.');
+        alert('Lütfen haritaya iki defa dokunarak Başlangıç ve Bitiş noktalarını seçin.');
         return;
       }
 
@@ -244,7 +247,6 @@
       const height = document.getElementById('max_height').value;
       const weight = document.getElementById('max_weight').value;
 
-      // Yerel GraphHopper sunucusu API adresi
       const url = `http://localhost:8989/route?` +
         `point=${startPoint[1]},${startPoint[0]}&` +
         `point=${endPoint[1]},${endPoint[0]}&` +
@@ -265,7 +267,6 @@
         const routeData = data.paths[0];
         const coordinates = routeData.points.coordinates;
 
-        // Haritada mevcut rota varsa güncelle, yoksa yeni katman oluştur
         if (map.getSource('truck-route')) {
           map.getSource('truck-route').setData({
             type: 'Feature',
@@ -289,13 +290,13 @@
           });
         }
 
-        // Rota detaylarını panede göster
         document.getElementById('route-details').style.display = 'block';
         document.getElementById('route-distance').innerText = `Mesafe: ${(routeData.distance / 1000).toFixed(1)} km`;
         document.getElementById('route-time').innerText = `Tahmini Süre: ${Math.round(routeData.time / 60000)} dk`;
 
-        // Mobil ekrandaysa rota hesaplandıktan sonra paneli otomatik küçült
-        if (window.innerWidth <= 768) {
+        // Rota çizilince menüyü kapat ki harita görünsün
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar.classList.contains('collapsed')) {
           toggleSidebar();
         }
 
