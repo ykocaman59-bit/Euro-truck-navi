@@ -1,0 +1,22 @@
+profiles:
+  - name: truck
+    vehicle: truck
+    weighting: custom
+    custom_model:
+      priority:
+        # 1. Tır erişimine kapalı yolları tamamen engelle (Örn: HGV = no / access = no)
+        - if: "hgv == NO"
+          multiply_by: "0.0"
+        
+        # 2. Araç yüksekliği köprü/tünel sınırını aşıyorsa o yola girmesini engelle
+        - if: "max_height < 4.0"
+          multiply_by: "0.0"
+
+        # 3. Araç ağırlığı köprü veya yol tonaj sınırını aşıyorsa engelle
+        - if: "max_weight < 40"
+          multiply_by: "0.0"
+
+        # 4. Şehir içi dar veya küçük yerleşim yollarına girmeyi engelle (sadece ana arterleri kullan)
+        - if: "road_class == RESIDENTIAL"
+          multiply_by: "0.1" # Zorunlu olmadıkça ara sokaklara sokmaz
+          
