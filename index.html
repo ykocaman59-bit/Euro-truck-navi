@@ -66,11 +66,6 @@
         .form-input { width: 100%; padding: 14px; background: var(--bg-card); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: white; font-size: 16px; }
         .btn-primary { width: calc(100% - 40px); margin: 10px 20px; padding: 16px; background: var(--accent-blue); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; text-align: center; }
 
-        .alert-banner {
-            background: var(--accent-red); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 15px;
-            box-shadow: 0 4px 20px rgba(255,51,51,0.4); margin-bottom: 15px;
-        }
-
         .bottom-nav {
             height: 70px; background: var(--bg-card); display: flex; justify-content: space-around; align-items: center;
             border-top: 1px solid rgba(255,255,255,0.05); z-index: 1100; flex-shrink: 0;
@@ -86,7 +81,7 @@
 <body>
 
 <div class="app-container">
-    <!-- ANA SAYFA -->
+    <!-- 1. ANA SAYFA -->
     <div id="screen-home" class="screen active">
         <div class="home-header">
             <svg width="60" height="60" viewBox="0 0 24 24" fill="#0066ff"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.62H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
@@ -104,7 +99,7 @@
         <button class="btn-primary" onclick="calculateRoute()">Rota Oluştur</button>
     </div>
 
-    <!-- HARİTA & NAVİGASYON EKRANI -->
+    <!-- 2. HARİTA EKRANI -->
     <div id="screen-map" class="screen">
         <div class="live-top-card" id="liveTopCard">
             <div>
@@ -122,21 +117,17 @@
             <div class="config-body" id="vehicleConfigPanel">
                 <div class="config-group">
                     <label>Araç Tipi</label>
-                    <select class="config-select" id="vehicleType" onchange="handleVehicleChange()">
+                    <select class="config-select" id="vehicleType">
                         <option value="heavy">Ağır Vasıta / TIR (40 T)</option>
                         <option value="kamyonet">Kamyonet</option>
                         <option value="car">Otomobil</option>
                     </select>
                 </div>
-                <div class="config-group" id="heightGroup">
+                <div class="config-group">
                     <label>Araç Yüksekliği (Metre)</label>
                     <input type="number" class="config-input" id="vehicleHeight" value="4.2" step="0.1">
                 </div>
-                <div class="config-group" id="weightGroup">
-                    <label>Araç Ağırlığı (Ton)</label>
-                    <input type="number" class="config-input" id="vehicleWeight" value="40">
-                </div>
-                <button class="btn-primary" style="width: 100%; margin: 5px 0 0 0; padding: 10px; font-size: 14px;" onclick="calculateRoute()">Yasakları Eleyerek Rota Hesapla</button>
+                <button class="btn-primary" style="width: 100%; margin: 5px 0 0 0; padding: 10px; font-size: 14px;" onclick="calculateRoute()">Rotayı Güncelle</button>
             </div>
         </div>
 
@@ -148,29 +139,32 @@
         </div>
     </div>
 
-    <!-- UYARI EKRANI -->
-    <div id="screen-alert" class="screen" style="padding: 20px; justify-content: center;">
-        <div class="alert-banner">
-            <div>
-                <h3 style="font-size: 18px; margin-bottom: 5px;">DİKKAT! YÜKSEKLİK UYARISI</h3>
-                <p style="font-size: 14px;">4.20 m araç boyu için köprü gabari sınırı yaklaşıyor!</p>
-            </div>
+    <!-- 3. PARK / HİZMETLER EKRANI -->
+    <div id="screen-parks" class="screen" style="padding: 20px;">
+        <h2 style="margin-bottom: 15px; font-size: 20px;">Tır Hizmet Noktaları</h2>
+        <div style="background: var(--bg-card); padding: 15px; border-radius: 12px; margin-bottom: 10px;">
+            <h4 style="color: var(--accent-blue); margin-bottom: 5px;">Kocaeli Tır Parkı</h4>
+            <p style="font-size: 13px; color: var(--text-secondary);">12 km kaldı • 24 Saat Açık • ⭐ 4.6</p>
         </div>
-        <button class="btn-primary" onclick="switchScreen('screen-map')">Haritaya Dön</button>
+        <div style="background: var(--bg-card); padding: 15px; border-radius: 12px; margin-bottom: 10px;">
+            <h4 style="color: var(--accent-green); margin-bottom: 5px;">Ankara Dinlenme Tesisi</h4>
+            <p style="font-size: 13px; color: var(--text-secondary);">198 km kaldı • Akaryakıt & Duş imkanı</p>
+        </div>
     </div>
 
-    <!-- AYARLAR -->
+    <!-- 4. AYARLAR EKRANI -->
     <div id="screen-settings" class="screen">
         <div style="padding: 20px; font-size: 20px; font-weight: bold;">Ayarlar</div>
         <div class="settings-list">
             <div class="setting-item"><span>Navigasyon Sesleri</span><input type="checkbox" checked></div>
             <div class="setting-item"><span>Ağır Vasıta Köprü Filtresi</span><input type="checkbox" checked></div>
+            <div class="setting-item"><span>Gece Modu (Koyu Tema)</span><input type="checkbox" checked></div>
             <div class="setting-item"><span>Birimler</span><span style="color: var(--text-secondary);">Kilometre</span></div>
         </div>
     </div>
 </div>
 
-<!-- ALT MENÜ ÇUBUĞU (Konteyner Dışına Taşındı - Sabit) -->
+<!-- ALT MENÜ (SABİT) -->
 <div class="bottom-nav">
     <button class="nav-item active" onclick="switchScreen('screen-home')">
         <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
@@ -180,12 +174,12 @@
         <svg viewBox="0 0 24 24"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.1V5l6 2.1V19z"/></svg>
         Harita
     </button>
-    <button class="nav-item" onclick="switchScreen('screen-alert')">
-        <svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
-        Uyarılar
+    <button class="nav-item" onclick="switchScreen('screen-parks')">
+        <svg viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.22.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.04 3H5.81l1.04-3zM19 17H5v-4.66l.12-.34h13.76l.12.34V17z"/></svg>
+        Parklar
     </button>
     <button class="nav-item" onclick="switchScreen('screen-settings')">
-        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.47l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c-.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.47l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.47l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c-.5.38-1.03.7-1.62.94l-.36 2.54c-.05.24-.24.41-.48.41h3.84c.24 0 .44-.17.47-.47l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
         Ayarlar
     </button>
 </div>
@@ -197,24 +191,23 @@
     let watchId = null;
     let tripStarted = false;
 
-    function speak(text) {
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'tr-TR';
-            utterance.rate = 1.0;
-            window.speechSynthesis.speak(utterance);
-        }
-    }
-
-    // Haritayı sayfa yüklenir yüklenmez başlat
-    window.onload = function() {
+    // Haritayı uygulama açılır açılmaz yükle ve boyutlandır
+    window.addEventListener('DOMContentLoaded', () => {
         map = L.map('map', {zoomControl: false}).setView([40.9833, 29.2662], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap'
         }).addTo(map);
-    };
+    });
+
+    function speak(text) {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'tr-TR';
+            window.speechSynthesis.speak(utterance);
+        }
+    }
 
     function switchScreen(screenId) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -226,22 +219,18 @@
         if(screenId === 'screen-map') {
             document.querySelectorAll('.nav-item')[1].classList.add('active');
             if(map) {
-                setTimeout(() => { map.invalidateSize(); }, 100);
+                setTimeout(() => {
+                    map.invalidateSize(); // Gri ekran sorununu kesin olarak çözen tetikleyici
+                }, 100);
             }
         }
-        if(screenId === 'screen-alert') document.querySelectorAll('.nav-item')[2].classList.add('active');
+        if(screenId === 'screen-parks') document.querySelectorAll('.nav-item')[2].classList.add('active');
         if(screenId === 'screen-settings') document.querySelectorAll('.nav-item')[3].classList.add('active');
     }
 
     function togglePanel() {
         const panel = document.getElementById('vehicleConfigPanel');
         panel.classList.toggle('hidden');
-    }
-
-    function handleVehicleChange() {
-        const type = document.getElementById('vehicleType').value;
-        document.getElementById('heightGroup').style.display = type === 'car' ? 'none' : 'block';
-        document.getElementById('weightGroup').style.display = type === 'car' ? 'none' : 'block';
     }
 
     function calculateRoute() {
@@ -282,7 +271,7 @@
 
         if(!tripStarted) {
             tripStarted = true;
-            speak("Navigasyon başlatıldı. Ağır vasıta kısıtlamaları denetleniyor, iyi yolculuklar.");
+            speak("Navigasyon başlatıldı. Ağır vasıta kısıtlamaları denetleniyor.");
             btn.innerText = "YOLCULUĞU BİTİR";
             btn.className = "btn-end-trip";
             liveCard.classList.add('active');
