@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Yandex Altyapılı Tır Navigasyonu</title>
-  
+  <title>Tır Navigasyonu - Yandex 3D</title>
+
   <script src="https://api-maps.yandex.ru/2.1/?lang=tr_TR&coordorder=longlat&apikey=YOUR_API_KEY" type="text/javascript"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    html, body { height: 100%; width: 100%; overflow: hidden; background: #000; }
+    html, body { height: 100%; width: 100%; overflow: hidden; background: #0f172a; }
     #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
 
-    /* YANDEX TARZI ARAMA KUTUSU */
+    /* YANDEX ADRES ARAMA KUTUSU */
     #search-box {
       position: absolute;
       top: 12px;
@@ -28,7 +28,7 @@
       flex: 1; border: none; outline: none; font-size: 0.95rem; color: #0f172a; background: transparent;
     }
 
-    /* TIR NAVİGASYON PANELİ (GÖRÜNÜM KORUNDU) */
+    /* TIR PARAMETRE PANELİ (VİDEODAKİ TASARIM) */
     #truck-panel {
       position: absolute;
       top: 68px;
@@ -54,7 +54,7 @@
     }
     .btn-calc { width: 100%; background: #0284c7; color: white; padding: 12px; border: none; border-radius: 10px; margin-top: 4px; font-weight: bold; cursor: pointer; font-size: 0.9rem; }
 
-    /* VİDEODAKİ YEŞİL BARI KORU */
+    /* VİDEODAKİ YEŞİL YOLCULUĞA BAŞLA BARI */
     #bottom-start-bar {
       position: absolute;
       bottom: 20px;
@@ -87,7 +87,7 @@
       cursor: pointer;
     }
 
-    /* SÜRÜŞ ESNASINDA TARİF VE BİTİR PANELİ */
+    /* VİDEODAKİ KIRMIZI YOLCULUĞU BİTİR PANELİ VE CANLI SESLİ TARİF METNİ */
     #active-nav-card {
       position: absolute;
       top: 15px;
@@ -105,7 +105,7 @@
       box-shadow: 0 8px 25px rgba(0,0,0,0.5);
     }
     .instruction-text {
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       font-weight: 700;
       color: #38bdf8;
       text-align: center;
@@ -171,7 +171,7 @@
 
   <script>
     let myMap, multiRoute;
-    let startCoords = [29.26, 40.96]; // Varsayılan Sultanbeyli
+    let userCoords = null; // Canlı GPS Konumu
     let targetCoords = null;
     let watchId = null;
     let routeSteps = [];
@@ -180,34 +180,44 @@
     ymaps.ready(init);
 
     function init() {
-      // Yandex Haritayı Başlat
+      // Yandex Haritayı Yükle
       myMap = new ymaps.Map('map', {
-        center: startCoords,
-        zoom: 13,
+        center: [29.00, 41.00], // Geçici merkez
+        zoom: 14,
         controls: ['zoomControl', 'geolocationControl']
       });
 
-      // CANLI GPS KONUMU AL
+      // HASSAS CANLI GPS KONUMUNU YÜKLE
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((pos) => {
-          startCoords = [pos.coords.longitude, pos.coords.latitude];
-          myMap.setCenter(startCoords, 15);
-        });
+          userCoords = [pos.coords.longitude, pos.coords.latitude];
+          myMap.setCenter(userCoords, 16);
+
+          // Cihaz konumunu haritada marker olarak göster
+          const userPlacemark = new ymaps.Placemark(userCoords, {
+            hintContent: 'Mevcut Konumunuz'
+          }, {
+            preset: 'islands#greenCircleDotIcon'
+          });
+          myMap.geoObjects.add(userPlacemark);
+        }, (err) => {
+          alert("Lütfen telefonunuzun GPS/Konum iznini açın.");
+        }, { enableHighAccuracy: true });
       }
 
-      // YANDEX OTO-TAMAMLAMA ADRES ARAMA SERVISI
+      // YANDEX TÜRKİYE DETAYLI ADRES VERİTABANI ARAMA SERVISI
       const suggestView = new ymaps.SuggestView('suggest-input');
       suggestView.events.add('select', function (e) {
-        const address = e.get('item').value;
-        ymaps.geocode(address).then(function (res) {
+        const selectedAddress = e.get('item').value;
+        ymaps.geocode(selectedAddress).then(function (res) {
           const firstGeoObject = res.geoObjects.get(0);
           targetCoords = firstGeoObject.geometry.getCoordinates();
           
-          myMap.setCenter(targetCoords, 14);
+          myMap.setCenter(targetCoords, 15);
         });
       });
 
-      // HARİTADAN MANUEL BİTİŞ SEÇME
+      // HARİTAYA TIKLAYARAK HEDEF SEÇME
       myMap.events.add('click', function (e) {
         targetCoords = e.get('coords');
       });
@@ -218,21 +228,23 @@
       content.style.display = content.style.display === 'none' ? 'block' : 'none';
     }
 
-    // YANDEX ROTA HESAPLAMA MOTORU
+    // YANDEX TIR ROTA HESAPLAMA MOTORU
     function calcYandexRoute() {
+      if (!userCoords) {
+        alert("Canlı GPS konumunuz henüz alınamadı. Lütfen konum servisinizin açık olduğundan emin olun.");
+        return;
+      }
       if (!targetCoords) {
-        alert("Lütfen arama kutusundan adresinizi yazın veya haritadan hedef seçin.");
+        alert("Lütfen arama kutusuna gideceğiniz adresi yazın veya haritaya tıklayın.");
         return;
       }
 
       if (multiRoute) myMap.geoObjects.remove(multiRoute);
 
-      // Yandex MultiRoute Kullanımı
+      // Yandex Tır Rotalama Modu
       multiRoute = new ymaps.multiRouter.MultiRoute({
-        referencePoints: [startCoords, targetCoords],
-        params: {
-          routingMode: 'truck' // Tır Rotalama Modu
-        }
+        referencePoints: [userCoords, targetCoords],
+        params: { routingMode: 'truck' }
       }, {
         boundsAutoApply: true,
         routeActiveStrokeWidth: 7,
@@ -241,7 +253,7 @@
 
       myMap.geoObjects.add(multiRoute);
 
-      // Rota bilgisi hazır olduğunda mesafe ve tarifleri al
+      // Rota Hesaplama Başarılı Olduğunda Bilgileri ve Sesli Adımları Al
       multiRoute.model.events.add('requestsuccess', function () {
         const activeRoute = multiRoute.getActiveRoute();
         if (activeRoute) {
@@ -251,16 +263,15 @@
           document.getElementById('route-summary-text').innerText = `Mesafe: ${distance} | Tahmini Süre: ${duration}`;
           document.getElementById('bottom-start-bar').style.display = 'flex';
 
-          // Yön tarif adımlarını diziye kaydet
+          // Yön tarif adımlarını topla
           routeSteps = [];
           const paths = activeRoute.getPaths();
           paths.each(function (path) {
             const segments = path.getSegments();
             segments.each(function (segment) {
               routeSteps.push({
-                text: segment.getProperties().get("action"), // Örn: "Sağa dönün", "Düz devam edin"
-                coordinates: segment.getCoordinates()[0],
-                distance: segment.getLength()
+                text: segment.getProperties().get("action"), // Örn: "100m sonra sağa dönün"
+                coordinates: segment.getCoordinates()[0]
               });
             });
           });
@@ -268,7 +279,7 @@
       });
     }
 
-    // YOLCULUĞA BAŞLA VE CANLI SESLİ TARİF ET
+    // YOLCULUĞA BAŞLA - YANDEX 3D GÖRÜNÜM VE CANLI SESLİ TARİF
     function startNavigation() {
       document.getElementById('bottom-start-bar').style.display = 'none';
       document.getElementById('search-box').style.display = 'none';
@@ -277,31 +288,40 @@
 
       speak("Navigasyon başlatılıyor. Güvenli sürüşler dilerim.");
 
+      // Kuş bakışı görünümden Yandex 3D Araç İçi Perspektif Açısına Geç
+      myMap.action.setProperties({
+        center: userCoords,
+        zoom: 18,
+        pitch: 60, // 3D Açı
+        duration: 1000
+      });
+
+      // Cihazın Hareketlerini İzle ve Adım Adım Sesli Komut Ver
       if (navigator.geolocation) {
         watchId = navigator.geolocation.watchPosition((pos) => {
-          const userLat = pos.coords.latitude;
-          const userLng = pos.coords.longitude;
-          const userCoords = [userLng, userLat];
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const currentPos = [lng, lat];
 
-          // Haritada kullanıcıyı ortala ve 3D açı ver
-          myMap.setCenter(userCoords, 18, { checkZoomRange: true });
+          // Haritayı araç konumuna kilitler
+          myMap.setCenter(currentPos, 18, { checkZoomRange: true });
 
-          // YAKINLAŞILAN ADIMA GÖRE SESLİ TARİF VER
-          checkAndAnnounceInstruction(userCoords);
+          // Yön Komutu Yakınlaşma Kontrolü
+          checkAndAnnounceInstruction(currentPos);
 
         }, null, { enableHighAccuracy: true });
       }
     }
 
-    // CANLI TARİF KONTROLÜ
-    function checkAndAnnounceInstruction(userCoords) {
+    // CANLI ADIM ADIM SESLİ YÖN TARİFİ
+    function checkAndAnnounceInstruction(currentPos) {
       for (let i = 0; i < routeSteps.length; i++) {
         const step = routeSteps[i];
-        const dist = getDistanceInMeters(userCoords, step.coordinates);
+        const dist = getDistanceInMeters(currentPos, step.coordinates);
 
-        // 100 metreden az kaldıysa ve daha önce söylenmediyse tarif et
-        if (dist < 100 && i > lastSpokenIndex) {
-          const actionText = step.text || "Yola devam edin.";
+        // Dönemece 80 metreden az kaldıysa ve daha önce söylenmediyse
+        if (dist < 80 && i > lastSpokenIndex) {
+          const actionText = step.text || "Düz devam edin.";
           document.getElementById('nav-instruction').innerText = actionText;
           speak(actionText);
           lastSpokenIndex = i;
