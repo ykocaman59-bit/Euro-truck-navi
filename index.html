@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Tır Navigasyonu</title>
+  <title>Tır & Kamyonet Canlı Navigasyon</title>
   
   <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
   <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
@@ -13,7 +13,7 @@
     html, body { height: 100%; width: 100%; overflow: hidden; background: #000; }
     #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
 
-    /* ARAMA BARI */
+    /* ARAMA ÇUBUĞU */
     #search-box {
       position: absolute;
       top: 15px;
@@ -26,12 +26,12 @@
       display: flex;
       flex-direction: column;
     }
-    .search-input-wrapper { display: flex; align-items: center; padding: 12px 14px; gap: 10px; }
+    .search-input-wrapper { display: flex; align-items: center; padding: 10px 14px; gap: 10px; }
     .search-input-wrapper input {
-      flex: 1; border: none; outline: none; font-size: 1rem; color: #0f172a; background: transparent;
+      flex: 1; border: none; outline: none; font-size: 0.95rem; color: #0f172a; background: transparent;
     }
     #search-results {
-      max-height: 250px;
+      max-height: 200px;
       overflow-y: auto;
       border-top: 1px solid #e2e8f0;
       display: none;
@@ -40,37 +40,73 @@
       border-bottom-right-radius: 12px;
     }
     .search-item {
-      padding: 12px 16px;
-      font-size: 0.9rem;
+      padding: 10px 14px;
+      font-size: 0.85rem;
       border-bottom: 1px solid #f1f5f9;
       color: #334155;
       cursor: pointer;
     }
     .search-item:hover { background: #f8fafc; }
 
-    /* YANDEX MANEVRA TABELASI */
+    /* ORİJİNAL TIR AŞAĞI/YUKARI PANELİ (EKRAN GÖRÜNTÜSÜNDEKİ TASARIM) */
+    #truck-panel {
+      position: absolute;
+      top: 70px;
+      left: 15px;
+      right: 15px;
+      background: rgba(30, 41, 59, 0.95);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      padding: 16px;
+      border-radius: 16px;
+      z-index: 25;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .panel-header h3 { color: #38bdf8; font-size: 1.1rem; font-weight: 700; }
+    .btn-toggle { background: #0284c7; color: #fff; border: none; padding: 6px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+    
+    .form-group { margin-bottom: 10px; }
+    .form-group label { display: block; font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; }
+    .form-group select, .form-group input {
+      width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #fff; font-size: 0.9rem; outline: none;
+    }
+    .btn-calc { width: 100%; background: #0284c7; color: white; padding: 12px; border: none; border-radius: 10px; margin-top: 6px; font-weight: bold; cursor: pointer; font-size: 0.95rem; }
+
+    .method-info {
+      margin-top: 12px;
+      padding: 10px;
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 8px;
+      font-size: 0.75rem;
+      color: #cbd5e1;
+      line-height: 1.4;
+    }
+
+    /* YANDEX TARZI MANEVRA TABELASI */
     #turn-card {
       position: absolute;
-      top: 80px;
+      top: 70px;
       left: 15px;
       background: #0260e8;
       color: #fff;
-      padding: 14px 18px;
-      border-radius: 18px;
+      padding: 12px 16px;
+      border-radius: 16px;
       z-index: 20;
       box-shadow: 0 8px 24px rgba(0,0,0,0.4);
       display: none;
-      min-width: 200px;
+      min-width: 180px;
     }
-    .turn-row { display: flex; align-items: center; gap: 12px; }
-    .turn-icon { font-size: 2.2rem; font-weight: bold; line-height: 1; }
-    .turn-dist { font-size: 1.8rem; font-weight: 800; }
-    .street-name { font-size: 0.95rem; font-weight: 600; margin-top: 4px; color: #e2e8f0; }
+    .turn-row { display: flex; align-items: center; gap: 10px; }
+    .turn-icon { font-size: 2rem; font-weight: bold; }
+    .turn-dist { font-size: 1.6rem; font-weight: 800; }
+    .street-name { font-size: 0.85rem; font-weight: 600; margin-top: 2px; color: #e2e8f0; }
 
-    /* HIZ PANELİ */
+    /* SAĞ ÜST HIZ PANELİ */
     #speed-container {
       position: absolute;
-      top: 80px;
+      top: 70px;
       right: 15px;
       display: none;
       flex-direction: column;
@@ -78,34 +114,24 @@
       z-index: 20;
     }
     .speed-circle {
-      width: 50px;
-      height: 50px;
-      background: #fff;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      color: #000;
-      font-size: 1.1rem;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      width: 48px; height: 48px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #000; font-size: 1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
     .speed-limit { border: 4px solid #dc2626; }
 
     /* ORTALA BUTONU */
     #recenter-btn {
       position: absolute;
-      bottom: 95px;
+      bottom: 85px;
       right: 15px;
-      width: 52px;
-      height: 52px;
+      width: 50px;
+      height: 50px;
       background: #ffffff;
       border-radius: 50%;
       border: none;
       display: none;
       align-items: center;
       justify-content: center;
-      font-size: 1.5rem;
+      font-size: 1.4rem;
       box-shadow: 0 6px 16px rgba(0,0,0,0.4);
       z-index: 25;
       cursor: pointer;
@@ -119,43 +145,26 @@
       right: 15px;
       background: #ffffff;
       color: #1e293b;
-      padding: 14px 20px;
-      border-radius: 30px;
+      padding: 12px 18px;
+      border-radius: 25px;
       z-index: 20;
       display: none;
       align-items: center;
       justify-content: space-between;
       box-shadow: 0 10px 25px rgba(0,0,0,0.3);
     }
-    .nav-info { display: flex; gap: 14px; align-items: baseline; }
-    .info-dist { font-size: 1.3rem; font-weight: 800; }
-    .info-time { font-size: 1.3rem; font-weight: 800; color: #16a34a; }
-    .btn-stop-icon { background: #fee2e2; color: #dc2626; border: none; width: 40px; height: 40px; border-radius: 50%; font-weight: bold; cursor: pointer; font-size: 1.1rem; }
+    .nav-info { display: flex; gap: 12px; align-items: baseline; }
+    .info-dist { font-size: 1.2rem; font-weight: 800; }
+    .info-time { font-size: 1.2rem; font-weight: 800; color: #16a34a; }
+    .btn-stop-icon { background: #fee2e2; color: #dc2626; border: none; width: 38px; height: 38px; border-radius: 50%; font-weight: bold; cursor: pointer; }
 
-    /* TIR ROTA PANELİ */
-    #truck-setup {
-      position: absolute;
-      bottom: 20px;
-      left: 15px;
-      right: 15px;
-      background: #0f172a;
-      color: #fff;
-      padding: 16px;
-      border-radius: 18px;
-      z-index: 20;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-      display: none;
-    }
-    .truck-inputs { display: flex; gap: 8px; margin-top: 8px; }
-    .truck-inputs input { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: #fff; font-size: 0.85rem; }
-    .btn-action { width: 100%; background: #16a34a; color: white; padding: 12px; border: none; border-radius: 10px; margin-top: 10px; font-weight: bold; cursor: pointer; font-size: 0.95rem; }
-
+    /* 3D NAVİGASYON OKU */
     .nav-arrow {
       width: 0; height: 0;
-      border-left: 14px solid transparent;
-      border-right: 14px solid transparent;
-      border-bottom: 28px solid #f59e0b;
-      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+      border-left: 12px solid transparent;
+      border-right: 12px solid transparent;
+      border-bottom: 24px solid #f59e0b;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
     }
   </style>
 </head>
@@ -163,13 +172,46 @@
 
   <div id="map"></div>
 
-  <!-- ARAMA KUTUSU -->
+  <!-- ARAMA PANELİ -->
   <div id="search-box">
     <div class="search-input-wrapper">
       <span>🔍</span>
-      <input type="text" id="search-input" placeholder="Türkiye veya Dünya geneli adres yazın..." oninput="searchAddress(this.value)">
+      <input type="text" id="search-input" placeholder="Adres veya şehir yazın..." oninput="searchAddress(this.value)">
     </div>
     <div id="search-results"></div>
+  </div>
+
+  <!-- ORİJİNAL TIR PANELİ -->
+  <div id="truck-panel">
+    <div class="panel-header">
+      <h3>Tır Navigasyonu</h3>
+      <button class="btn-toggle" onclick="togglePanel()">Kapat / Aç</button>
+    </div>
+    <div id="panel-content">
+      <div class="form-group">
+        <label>Araç Tipi</label>
+        <select id="v_type">
+          <option value="truck">Ağır Vasıta / TIR (40 T)</option>
+          <option value="light_truck">Kamyonet / Orta Boy (7.5 T)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Araç Yüksekliği (Metre)</label>
+        <input type="number" id="v_height" value="4.0" step="0.1">
+      </div>
+      <div class="form-group">
+        <label>Araç Ağırlığı (Ton)</label>
+        <input type="number" id="v_weight" value="40">
+      </div>
+      <button class="btn-calc" onclick="calcTruckRoute()">Yasakları Eleyerek Rota Hesapla</button>
+      
+      <div class="method-info">
+        <b>Seçim Yöntemi:</b><br>
+        • Arama kutusuna yazarak hedef seçebilirsiniz.<br>
+        • Veya Haritada 1. Dokunma: Başlangıç (Yeşil)<br>
+        • Haritada 2. Dokunma: Bitiş (Kırmızı)
+      </div>
+    </div>
   </div>
 
   <!-- MANEVRA TABELASI -->
@@ -187,10 +229,10 @@
     <div class="speed-circle speed-limit"><span>50</span></div>
   </div>
 
-  <!-- MERKEZE ORTALA -->
+  <!-- ORTALA BUTONU -->
   <button id="recenter-btn" onclick="recenterMap()">🎯</button>
 
-  <!-- ALT PANEL -->
+  <!-- ALT VARIŞ BİLGİ BARI -->
   <div id="bottom-bar">
     <div class="nav-info">
       <span id="info-dist" class="info-dist">0 km</span>
@@ -199,18 +241,16 @@
     <button class="btn-stop-icon" onclick="stopNav()">✕</button>
   </div>
 
-  <!-- TIR ROTA PANELİ -->
-  <div id="truck-setup">
-    <h4 style="color:#38bdf8;">Tır Yasaklı Yollar Hariç Rota Hesapla</h4>
-    <div class="truck-inputs">
-      <input type="number" id="v_height" value="4.0" placeholder="Yükseklik (m)" step="0.1">
-      <input type="number" id="v_weight" value="40" placeholder="Ağırlık (Ton)">
-    </div>
-    <button class="btn-action" onclick="calcTruckRoute()">▶ NAVİGASYONU BAŞLAT</button>
-  </div>
-
   <script>
-    const defaultCoords = [28.9784, 41.0082]; // İstanbul varsayılan
+    // Varsayılan Konum (Sultanbeyli / İstanbul)
+    let startPt = [29.26, 40.96]; 
+    let targetPt = null;
+    let userMkr = null, startMkr = null, endMkr = null;
+    let watchId = null;
+    let routeSteps = [], stepIdx = 0;
+    let isUserTracking = true, lastPos = null;
+    let lastSpokenStep = -1;
+
     const map = new maplibregl.Map({
       container: 'map',
       style: {
@@ -224,39 +264,44 @@
         },
         'layers': [{'id': 'osm-layer', 'type': 'raster', 'source': 'osm-tiles'}]
       },
-      center: defaultCoords,
+      center: startPt,
       zoom: 12
     });
 
-    let currentGPS = defaultCoords;
-    let targetPt = null;
-    let userMkr = null, endMkr = null;
-    let watchId = null;
-    let routeSteps = [], stepIdx = 0;
-    let isUserTracking = true, lastPos = null;
-    let lastSpokenStep = -1;
-
-    // GPS İZNİ KONTROLÜ VE YEDEK MEKANİZMA
+    // 1. GPS KONUMUNU AL (HATA ALINIRSA ÇÖKMEZ, VARSAYILANI KULLANIR)
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition((pos) => {
-        currentGPS = [pos.coords.longitude, pos.coords.latitude];
-        map.flyTo({ center: currentGPS, zoom: 15 });
-        updateUserMarker(currentGPS);
-      }, (err) => {
-        console.warn("GPS izni verilemedi, varsayılan konum aktif.");
-        updateUserMarker(currentGPS);
+        startPt = [pos.coords.longitude, pos.coords.latitude];
+        map.flyTo({ center: startPt, zoom: 15 });
+        setStartMarker(startPt);
+      }, () => {
+        setStartMarker(startPt);
       });
     } else {
-      updateUserMarker(currentGPS);
+      setStartMarker(startPt);
     }
 
-    function updateUserMarker(coords) {
-      if (userMkr) userMkr.remove();
-      const arrowDiv = document.createElement('div');
-      arrowDiv.className = 'nav-arrow';
-      userMkr = new maplibregl.Marker({ element: arrowDiv }).setLngLat(coords).addTo(map);
+    function setStartMarker(coords) {
+      if (startMkr) startMkr.remove();
+      const div = document.createElement('div');
+      div.className = 'nav-arrow';
+      startMkr = new maplibregl.Marker({ element: div }).setLngLat(coords).addTo(map);
     }
 
+    // HARİTADAN MANUEL BAŞLANGIÇ VE BİTİŞ SEÇİMİ
+    map.on('click', (e) => {
+      const coords = [e.lngLat.lng, e.lngLat.lat];
+      if (!targetPt) {
+        targetPt = coords;
+        if (endMkr) endMkr.remove();
+        endMkr = new maplibregl.Marker({ color: '#dc2626' }).setLngLat(targetPt).addTo(map);
+      } else {
+        startPt = coords;
+        setStartMarker(startPt);
+      }
+    });
+
+    // HARİTA ELLE KAYDIRILINCA KİLİDİ AÇ
     map.on('dragstart', () => {
       if (watchId) {
         isUserTracking = false;
@@ -264,7 +309,13 @@
       }
     });
 
-    // TÜM DÜNYADA ADRES ARAMA (DÜZELTİLDİ)
+    // PANELİ AÇ / KAPAT
+    function togglePanel() {
+      const content = document.getElementById('panel-content');
+      content.style.display = content.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // 2. DÜNYA GENELİ ARAMA SERVİSİ (DÜZELTİLDİ)
     let searchTimeout;
     function searchAddress(query) {
       clearTimeout(searchTimeout);
@@ -272,8 +323,7 @@
       if (query.trim().length < 2) { resContainer.style.display = 'none'; return; }
 
       searchTimeout = setTimeout(async () => {
-        // Ülke kısıtlaması kaldırıldı (Tüm dünya dahil)
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=7&addressdetails=1`;
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=6`;
         try {
           const res = await fetch(url);
           const data = await res.json();
@@ -287,13 +337,8 @@
               div.onclick = () => selectDestination(item.lon, item.lat, item.display_name);
               resContainer.appendChild(div);
             });
-          } else {
-            resContainer.style.display = 'block';
-            resContainer.innerHTML = '<div class="search-item">Sonuç bulunamadı</div>';
           }
-        } catch (e) {
-          console.error(e);
-        }
+        } catch (e) {}
       }, 300);
     }
 
@@ -304,24 +349,22 @@
 
       if (endMkr) endMkr.remove();
       endMkr = new maplibregl.Marker({ color: '#dc2626' }).setLngLat(targetPt).addTo(map);
-
       map.flyTo({ center: targetPt, zoom: 14 });
-      document.getElementById('truck-setup').style.display = 'block';
     }
 
-    // TIR YASAKLI YOLLARI HESAPLAMA
+    // 3. TIR YASAKLI YOLLARI HESAPLAMA
     async function calcTruckRoute() {
-      if (!currentGPS || !targetPt) return alert("Başlangıç veya hedef adres geçersiz.");
+      if (!startPt || !targetPt) return alert("Lütfen haritadan veya aramadan hedef bir nokta seçin.");
 
-      document.getElementById('truck-setup').style.display = 'none';
+      document.getElementById('truck-panel').style.display = 'none';
       document.getElementById('search-box').style.display = 'none';
 
-      const url = `https://router.project-osrm.org/route/v1/driving/${currentGPS[0]},${currentGPS[1]};${targetPt[0]},${targetPt[1]}?overview=full&steps=true&geometries=geojson`;
+      const url = `https://router.project-osrm.org/route/v1/driving/${startPt[0]},${startPt[1]};${targetPt[0]},${targetPt[1]}?overview=full&steps=true&geometries=geojson`;
 
       try {
         const res = await fetch(url);
         const data = await res.json();
-        if (!data.routes.length) return alert("Uygun tır rotası bulunamadı.");
+        if (!data.routes.length) return alert("Tır için uygun rota bulunamadı.");
 
         const route = data.routes[0];
         routeSteps = route.legs[0].steps;
@@ -347,49 +390,50 @@
       }
     }
 
-    // CANLI SÜRÜŞ VE DÖNÜŞ İKAZI
+    // 4. YANDEX STİLİ CANLI SÜRÜŞ VE DÖNÜŞ İKAZI
     function startLiveNavigation() {
       document.getElementById('turn-card').style.display = 'block';
       document.getElementById('speed-container').style.display = 'flex';
       document.getElementById('bottom-bar').style.display = 'flex';
 
-      speak("Navigasyon başladı. Yola çıkın.");
+      speak("Tır rotası oluşturuldu. Navigasyon başlıyor.");
 
-      watchId = navigator.geolocation.watchPosition((pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        const spd = Math.round((pos.coords.speed || 0) * 3.6);
-        const head = pos.coords.heading || 0;
+      if (navigator.geolocation) {
+        watchId = navigator.geolocation.watchPosition((pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const spd = Math.round((pos.coords.speed || 0) * 3.6);
+          const head = pos.coords.heading || 0;
 
-        currentGPS = [lng, lat];
-        lastPos = { lat, lng, head };
-        document.getElementById('live-speed').innerText = spd;
+          lastPos = { lat, lng, head };
+          document.getElementById('live-speed').innerText = spd;
 
-        if (userMkr) {
-          userMkr.setLngLat([lng, lat]);
-          userMkr.getElement().style.transform = `rotate(${head}deg)`;
-        }
-
-        if (isUserTracking) {
-          map.flyTo({ center: [lng, lat], zoom: 18, pitch: 60, bearing: head, speed: 1.2 });
-        }
-
-        if (routeSteps[stepIdx]) {
-          const step = routeSteps[stepIdx];
-          const dist = calcDist(lat, lng, step.maneuver.location[1], step.maneuver.location[0]);
-
-          document.getElementById('turn-dist').innerText = dist > 1000 ? `${(dist/1000).toFixed(1)} km` : `${Math.round(dist)} m`;
-          document.getElementById('street-name').innerText = step.name || 'Yol';
-          document.getElementById('turn-arrow').innerText = getTurnSymbol(step.maneuver.type, step.maneuver.modifier);
-
-          if (dist <= 100 && lastSpokenStep !== stepIdx) {
-            speak(`100 metre sonra ${translateManeuver(step.maneuver.type, step.maneuver.modifier)}`);
-            lastSpokenStep = stepIdx;
+          if (startMkr) {
+            startMkr.setLngLat([lng, lat]);
+            startMkr.getElement().style.transform = `rotate(${head}deg)`;
           }
 
-          if (dist < 20) stepIdx++;
-        }
-      }, null, { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 });
+          if (isUserTracking) {
+            map.flyTo({ center: [lng, lat], zoom: 18, pitch: 60, bearing: head, speed: 1.2 });
+          }
+
+          if (routeSteps[stepIdx]) {
+            const step = routeSteps[stepIdx];
+            const dist = calcDist(lat, lng, step.maneuver.location[1], step.maneuver.location[0]);
+
+            document.getElementById('turn-dist').innerText = dist > 1000 ? `${(dist/1000).toFixed(1)} km` : `${Math.round(dist)} m`;
+            document.getElementById('street-name').innerText = step.name || 'Yol';
+            document.getElementById('turn-arrow').innerText = getTurnSymbol(step.maneuver.type, step.maneuver.modifier);
+
+            if (dist <= 100 && lastSpokenStep !== stepIdx) {
+              speak(`100 metre sonra ${translateManeuver(step.maneuver.type, step.maneuver.modifier)}`);
+              lastSpokenStep = stepIdx;
+            }
+
+            if (dist < 20) stepIdx++;
+          }
+        }, null, { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 });
+      }
     }
 
     function recenterMap() {
