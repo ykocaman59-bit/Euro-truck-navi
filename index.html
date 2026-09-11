@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Tır Navigasyonu - Canlı Sürüş Modu</title>
 
-  <!-- Leaflet & OpenStreetMap Kütüphaneleri -->
+  <!-- Leaflet Harita Kütüphanesi (API Key Gerektirmez) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -14,7 +14,7 @@
     html, body { height: 100%; width: 100%; overflow: hidden; background: #0f172a; }
     #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
 
-    /* ARAMA KUTUSU VE SONUÇ LİSTESİ */
+    /* ARAMA KUTUSU VE ÖNERİ LİSTESİ */
     #search-box {
       position: absolute;
       top: 12px;
@@ -35,6 +35,7 @@
       max-height: 200px;
       overflow-y: auto;
       display: none;
+      border-top: 1px solid #eee;
     }
     .search-item {
       padding: 10px 14px;
@@ -147,7 +148,7 @@
   <div id="search-box">
     <div class="search-input-wrapper">
       <span>🔍</span>
-      <input type="text" id="suggest-input" placeholder="Adres veya mekan arayın..." oninput="handleSearch(this.value)">
+      <input type="text" id="suggest-input" placeholder="Ev adresi, sokak veya kapı no yazın..." oninput="handleSearch(this.value)">
     </div>
     <div id="search-results"></div>
   </div>
@@ -161,8 +162,8 @@
       <div class="form-group">
         <label>Araç Tipi</label>
         <select id="v_type">
-          <option value="driving-hgv">Ağır Vasıta / TIR (40 T)</option>
-          <option value="driving-car">Kamyonet / Hafif Ticari</option>
+          <option value="truck">Ağır Vasıta / TIR (40 T)</option>
+          <option value="car">Kamyonet / Otomobil</option>
         </select>
       </div>
       <div class="form-group">
@@ -173,7 +174,7 @@
         <label>Araç Ağırlığı (Ton)</label>
         <input type="number" id="v_weight" value="40">
       </div>
-      <button class="btn-calc" onclick="calcTruckRoute()">Yasakları Eleyerek Rota Hesapla</button>
+      <button class="btn-calc" onclick="calcRoute()">Yasakları Eleyerek Rota Hesapla</button>
     </div>
   </div>
 
@@ -188,16 +189,12 @@
   </div>
 
   <script>
-    const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYzMTU3MGQ5YWU1NDQzYzRiYjBmZWNiYWYwNzAyZWZjIiwiaCI6Im11cm11cjY0In0=";
-
     let map, userMarker, targetMarker, routeLayer;
     let userCoords = null;
     let targetCoords = null;
     let watchId = null;
-    let navigationSteps = [];
-    let lastSpokenIndex = -1;
 
-    // 1. HARİTAYI BAŞLAT
+    // 1. HARİTA KURULUMU
     function initMap() {
       map = L.map('map', { zoomControl: false }).setView([41.0082, 28.9784], 13);
 
@@ -209,14 +206,14 @@
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((pos) => {
           userCoords = [pos.coords.latitude, pos.coords.longitude];
-          map.setView(userCoords, 15);
+          map.setView(userCoords, 16);
           setUserMarker(userCoords);
-        }, () => {
-          alert("GPS konumu alınamadı.");
+        }, (err) => {
+          alert("GPS konumunuz alınamadı. Lütfen konum iznini açın.");
         }, { enableHighAccuracy: true });
       }
 
-      // Haritadan Hedef Seçme
+      // Tıklayarak Varış Noktası Seçme
       map.on('click', (e) => {
         targetCoords = [e.latlng.lat, e.latlng.lng];
         setTargetMarker(targetCoords);
@@ -238,7 +235,7 @@
       content.style.display = content.style.display === 'none' ? 'block' : 'none';
     }
 
-    // 2. CANLI ADRES ARAMA (Geocoding)
+    // 2. ARAMA KUTUSU (Adres, Sokak, Kapı No)
     let searchTimeout;
     function handleSearch(query) {
       clearTimeout(searchTimeout);
@@ -250,7 +247,7 @@
           const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=tr`);
           const data = await res.json();
           resultsDiv.innerHTML = '';
-          if (data.length > 0) {
+          if (data && data.length > 0) {
             resultsDiv.style.display = 'block';
             data.forEach(item => {
               const div = document.createElement('div');
@@ -259,7 +256,7 @@
               div.onclick = () => {
                 targetCoords = [parseFloat(item.lat), parseFloat(item.lon)];
                 setTargetMarker(targetCoords);
-                map.setView(targetCoords, 15);
+                map.setView(targetCoords, 16);
                 resultsDiv.style.display = 'none';
                 document.getElementById('suggest-input').value = item.display_name;
               };
@@ -270,63 +267,39 @@
       }, 400);
     }
 
-    // 3. TIR ROTASI HESAPLAMA (OpenRouteService Entegrasyonu)
-    async function calcTruckRoute() {
-      if (!userCoords) { alert("GPS konumunuz bulunamadı!"); return; }
-      if (!targetCoords) { alert("Lütfen arama kutusundan veya haritadan hedef seçin!"); return; }
+    // 3. ROTA HESAPLAMA
+    async function calcRoute() {
+      if (!userCoords) { alert("GPS konumunuz henüz alınamadı!"); return; }
+      if (!targetCoords) { alert("Lütfen arama kutusundan adres seçin veya haritada bir yere tıklayın!"); return; }
 
-      const profile = document.getElementById("v_type").value;
-      const height = parseFloat(document.getElementById("v_height").value);
-      const weight = parseFloat(document.getElementById("v_weight").value);
-
-      const url = `https://api.heigit.org/v2/directions/${profile}/geojson`;
-      const bodyData = {
-        coordinates: [
-          [userCoords[1], userCoords[0]], // Longitude, Latitude
-          [targetCoords[1], targetCoords[0]]
-        ],
-        options: {
-          profile_params: {
-            weight_restrictions: { weight: weight, height: height }
-          }
-        }
-      };
+      const url = `https://router.project-osrm.org/route/v1/driving/${userCoords[1]},${userCoords[0]};${targetCoords[1]},${targetCoords[0]}?overview=full&geometries=geojson`;
 
       try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Authorization': ORS_API_KEY, 'Content-Type': 'application/json' },
-          body: JSON.stringify(bodyData)
-        });
+        const res = await fetch(url);
         const data = await res.json();
 
-        if (data.features && data.features.length > 0) {
+        if (data.routes && data.routes.length > 0) {
           if (routeLayer) map.removeLayer(routeLayer);
 
-          routeLayer = L.geoJSON(data.features[0], {
+          const route = data.routes[0];
+          routeLayer = L.geoJSON(route.geometry, {
             style: { color: '#0284c7', weight: 6, opacity: 0.9 }
           }).addTo(map);
 
           map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
 
-          const summary = data.features[0].properties.summary;
-          const distKm = (summary.distance / 1000).toFixed(1);
-          const durMin = Math.round(summary.duration / 60);
+          const distKm = (route.distance / 1000).toFixed(1);
+          const durMin = Math.round(route.duration / 60);
 
           document.getElementById('route-summary-text').innerText = `Mesafe: ${distKm} km | Tahmini Süre: ${durMin} dk`;
           document.getElementById('bottom-start-bar').style.display = 'flex';
-
-          navigationSteps = data.features[0].properties.segments[0].steps;
-        } else {
-          alert("Seçilen araç boyutlarına uygun geçiş yolu bulunamadı!");
         }
       } catch (e) {
-        console.error(e);
-        alert("Rota hesaplanırken bir hata oluştu.");
+        alert("Rota hesaplanırken bir sorun oluştu.");
       }
     }
 
-    // 4. CANLI NAVİGASYON & SESLİ YÖNLENDİRME
+    // 4. CANLI NAVİGASYON
     function startNavigation() {
       document.getElementById('bottom-start-bar').style.display = 'none';
       document.getElementById('search-box').style.display = 'none';
@@ -336,37 +309,13 @@
       speak("Navigasyon başlatılıyor. Güvenli sürüşler dilerim.");
       map.setZoom(18);
 
-      lastSpokenIndex = -1;
-
       if (navigator.geolocation) {
         watchId = navigator.geolocation.watchPosition((pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          userCoords = [lat, lng];
-
+          userCoords = [pos.coords.latitude, pos.coords.longitude];
           setUserMarker(userCoords);
-          map.panTo(userCoords); // Sürücüyü ekranın ortasında tut
-
-          checkStepAnnouncement(userCoords);
-        }, null, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
-      }
-    }
-
-    function checkStepAnnouncement(currentPos) {
-      if (!navigationSteps || navigationSteps.length === 0) return;
-
-      for (let i = 0; i < navigationSteps.length; i++) {
-        const step = navigationSteps[i];
-        // Rota adım koordinatı
-        const stepLocation = step.way_points; 
-
-        if (i > lastSpokenIndex) {
-          const instruction = step.instruction || "Yola devam edin";
-          document.getElementById('nav-instruction').innerText = instruction;
-          speak(instruction);
-          lastSpokenIndex = i;
-          break;
-        }
+          map.panTo(userCoords);
+          document.getElementById('nav-instruction').innerText = "Rota üzerinde ilerleyin";
+        }, null, { enableHighAccuracy: true });
       }
     }
 
