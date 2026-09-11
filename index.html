@@ -99,7 +99,7 @@
         </div>
         <div class="form-group">
             <label>Varış Noktası</label>
-            <input type="text" class="form-input" id="end-loc" value="Ankara Merkez" placeholder="Adres, şehir veya ülke girin">
+            <input type="text" class="form-input" id="end-loc" value="Ankara" placeholder="Adres, şehir veya ülke girin">
         </div>
         <button class="btn-primary" onclick="calculateRoute()">Rota Oluştur</button>
     </div>
@@ -109,15 +109,15 @@
         <div class="live-top-card" id="liveTopCard">
             <div>
                 <span style="font-size: 12px; color: var(--text-secondary);" id="liveRouteName">Sultanbeyli ➔ Ankara</span>
-                <div style="font-weight: bold; font-size: 14px;" id="liveInstruction">Ana caddeye çıkın</div>
+                <div style="font-weight: bold; font-size: 14px;" id="liveInstruction">Ana yola bağlanın</div>
             </div>
-            <div style="background: var(--accent-blue); padding: 6px 12px; border-radius: 8px; font-weight: bold; font-size: 14px;" id="liveNextDist">500 m</div>
+            <div style="background: var(--accent-blue); padding: 6px 12px; border-radius: 8px; font-weight: bold; font-size: 14px;" id="liveNextDist">250 m</div>
         </div>
 
         <div class="top-vehicle-panel" id="vehiclePanelContainer">
             <div class="panel-header">
                 <span class="panel-title">Tır Navigasyonu</span>
-                <button class="toggle-btn" onclick="togglePanel()">Kapat / Aç</button>
+                <button class="toggle-btn" onclick="togglePanel()">Aç / Kapat</button>
             </div>
             <div class="config-body" id="vehicleConfigPanel">
                 <div class="config-group">
@@ -153,7 +153,7 @@
         <div class="alert-banner">
             <div>
                 <h3 style="font-size: 18px; margin-bottom: 5px;">DİKKAT! YÜKSEKLİK UYARISI</h3>
-                <p style="font-size: 14px;">4.20 m aracınız için riskli bölge! 3.80 m köprü yaklaşımı var.</p>
+                <p style="font-size: 14px;">4.20 m araç boyu için köprü gabari sınırı yaklaşıyor!</p>
             </div>
         </div>
         <button class="btn-primary" onclick="switchScreen('screen-map')">Haritaya Dön</button>
@@ -191,7 +191,10 @@
 </div>
 
 <script>
-    let map, routeLayer, liveMarker, watchId;
+    let map = null;
+    let routeLayer = null;
+    let liveMarker = null;
+    let watchId = null;
     let tripStarted = false;
 
     function speak(text) {
@@ -213,36 +216,20 @@
         if(screenId === 'screen-home') document.querySelectorAll('.nav-item')[0].classList.add('active');
         if(screenId === 'screen-map') {
             document.querySelectorAll('.nav-item')[1].classList.add('active');
-            setTimeout(() => { if(map) map.invalidateSize(); }, 200);
+            setTimeout(() => {
+                if (!map) {
+                    map = L.map('map', {zoomControl: false}).setView([40.9833, 29.2662], 13);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 19,
+                        attribution: '© OpenStreetMap'
+                    }).addTo(map);
+                } else {
+                    map.invalidateSize();
+                }
+            }, 100);
         }
         if(screenId === 'screen-alert') document.querySelectorAll('.nav-item')[2].classList.add('active');
         if(screenId === 'screen-settings') document.querySelectorAll('.nav-item')[3].classList.add('active');
-    }
-
-    function initMap() {
-        map = L.map('map', {zoomControl: false}).setValue ? null : L.map('map', {zoomControl: false}).setView([40.9833, 29.2662], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
-
-        // Canlı Konum Başlangıç İşaretçisi
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(pos => {
-                const latLng = [pos.coords.latitude, pos.coords.longitude];
-                map.setView(latLng, 14);
-                liveMarker = L.marker(latLng, {
-                    icon: L.divIcon({
-                        className: 'live-icon',
-                        html: '<div style="background:#0066ff;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(0,0,0,0.6);"></div>',
-                        iconSize: [18, 18]
-                    })
-                }).addTo(map);
-            }, () => {
-                // Konum izni yoksa Sultanbeyli merkezi baz al
-                map.setView([40.9631, 29.2662], 14);
-            });
-        }
     }
 
     function togglePanel() {
@@ -257,29 +244,44 @@
     }
 
     function calculateRoute() {
+        const dest = document.getElementById('end-loc').value.trim() || "Ankara";
+        document.getElementById('liveRouteName').innerText = `Sultanbeyli ➔ ${dest}`;
+        
         switchScreen('screen-map');
         document.getElementById('vehicleConfigPanel').classList.add('hidden');
 
-        // Örnek Güvenli Rota Koordinatları (Sultanbeyli -> Ankara Karayolu Simülasyonu)
-        const routeCoords = [
-            [40.9631, 29.2662],
-            [40.9800, 29.3500],
-            [41.0200, 29.5000],
-            [40.7500, 30.3800], // Adapazarı geçişi
-            [40.2200, 30.6500], // Bilecik
-            [39.9334, 32.8597]  // Ankara
-        ];
+        setTimeout(() => {
+            if (!map) {
+                map = L.map('map', {zoomControl: false}).setView([40.9833, 29.2662], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
+                }).addTo(map);
+            } else {
+                map.invalidateSize();
+            }
 
-        if(routeLayer) map.removeLayer(routeLayer);
-        routeLayer = L.polyline(routeCoords, {color: '#0066ff', weight: 6}).addTo(map);
-        map.fitBounds(routeLayer.getBounds());
+            // Örnek Rota Çizgisi
+            const routeCoords = [
+                [40.9631, 29.2662],
+                [40.9800, 29.3500],
+                [41.0200, 29.5000],
+                [40.7500, 30.3800],
+                [40.2200, 30.6500],
+                [39.9334, 32.8597]
+            ];
 
-        document.getElementById('tripInfoText').innerText = "Mesafe: 450 km | Tahmini Süre: 5 sa 15 dk (TIR Rotalı)";
-        document.getElementById('tripCard').classList.add('active');
-        tripStarted = false;
-        const btn = document.getElementById('tripActionBtn');
-        btn.innerText = "YOLCULUĞA BAŞLA";
-        btn.className = "btn-start-trip";
+            if(routeLayer) map.removeLayer(routeLayer);
+            routeLayer = L.polyline(routeCoords, {color: '#0066ff', weight: 6}).addTo(map);
+            map.fitBounds(routeLayer.getBounds());
+
+            document.getElementById('tripInfoText').innerText = `Hedef: ${dest} | 450 km | 5 sa 15 dk (TIR Rotalı)`;
+            document.getElementById('tripCard').classList.add('active');
+            tripStarted = false;
+            const btn = document.getElementById('tripActionBtn');
+            btn.innerText = "YOLCULUĞA BAŞLA";
+            btn.className = "btn-start-trip";
+        }, 150);
     }
 
     function toggleTripState() {
@@ -318,11 +320,23 @@
             document.getElementById('tripCard').classList.remove('active');
             liveCard.classList.remove('active');
             if(routeLayer) map.removeLayer(routeLayer);
+            if(liveMarker) { map.removeLayer(liveMarker); liveMarker = null; }
             if(watchId) navigator.geolocation.clearWatch(watchId);
         }
     }
 
-    window.onload = initMap;
+    window.onload = function() {
+        // İlk açılışta harita objesini önceden hazırla
+        setTimeout(() => {
+            if (!map) {
+                map = L.map('map', {zoomControl: false}).setView([40.9833, 29.2662], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
+                }).addTo(map);
+            }
+        }, 500);
+    };
 </script>
 </body>
 </html>
