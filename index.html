@@ -3,27 +3,210 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mobil Navigasyon</title>
+    <title>Navigasyon</title>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Leaflet Routing Machine CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
-    <link rel="stylesheet" href="style.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        #map { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        
+        /* Üst Arama / Kontrol Paneli */
+        .top-panel {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .search-box {
+            display: flex;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 8px 12px;
+            align-items: center;
+        }
+        .search-box input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            padding: 8px;
+            background: transparent;
+        }
+        .search-box button {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Alt Durum Çubuğu */
+        .bottom-panel {
+            position: absolute;
+            bottom: 30px;
+            left: 15px;
+            right: 15px;
+            z-index: 1000;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .info-text h4 { font-size: 15px; color: #1c1c1e; margin-bottom: 2px; }
+        .info-text p { font-size: 13px; color: #8e8e93; }
+        
+        .locate-btn {
+            background: #34C759;
+            color: white;
+            border: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 4px 10px rgba(52,199,89,0.3);
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
 
     <div id="map"></div>
 
-    <div id="panel">
-        <h3>Navigasyon Paneli</h3>
-        <p>Haritada bir yere tıkla veya konumunu bul.</p>
-        <button id="locate-btn">Konumumu Bul</button>
+    <div class="top-panel">
+        <div class="search-box">
+            <input type="text" id="destination-input" placeholder="Gitmek istediğin yeri yaz (Örn: Kadıköy)...">
+            <button id="search-btn">Git</button>
+        </div>
     </div>
 
-    <!-- Leaflet JS -->
+    <div class="bottom-panel">
+        <div class="info-text">
+            <h4 id="status-title">Konum Bekleniyor</h4>
+            <p id="status-desc">Haritadan bir yer seç veya arama yap.</p>
+        </div>
+        <button class="locate-btn" id="locate-btn" title="Konumumu Bul">📍</button>
+    </div>
+
+    <!-- Leaflet JS ve Rota Kütüphanesi -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Leaflet Routing Machine JS -->
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
-    <script src="app.js"></script>
+
+    <script>
+        // Haritayı başlat (İstanbul merkezli)
+        const map = L.map('map', { zoomControl: false }).setView([41.0082, 28.9784], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        L.control.zoom({ position: 'topright' }).addTo(map);
+
+        let userMarker = null;
+        let routingControl = null;
+        let userCoords = null;
+
+        // Kullanıcı konumunu takip et
+        const statusTitle = document.getElementById('status-title');
+        const statusDesc = document.getElementById('status-desc');
+
+        document.getElementById('locate-btn').addEventListener('click', () => {
+            if (!navigator.geolocation) {
+                alert("Tarayıcınız konum desteklemiyor.");
+                return;
+            }
+            statusTitle.innerText = "Konum alınıyor...";
+            navigator.geolocation.getCurrentPosition(position => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                userCoords = [lat, lng];
+
+                map.setView(userCoords, 16);
+
+                if (userMarker) {
+                    userMarker.setLatLng(userCoords);
+                } else {
+                    userMarker = L.marker(userCoords).addTo(map).bindPopup("Buradasın").openPopup();
+                }
+                statusTitle.innerText = "Konum bulundu";
+                statusDesc.innerText = "Şimdi gitmek istediğin yeri ara veya haritaya dokun.";
+            }, () => {
+                alert("Konum izni reddedildi veya alınamadı.");
+                statusTitle.innerText = "Hata";
+                statusDesc.innerText = "Konum alınamadı.";
+            }, { enableHighAccuracy: true });
+        });
+
+        // Haritaya tıklayarak rota çizme
+        map.on('click', function(e) {
+            if (!userCoords) {
+                alert("Önce sağ alttaki yeşil konuma basarak kendi konumunu bulmalısın!");
+                return;
+            }
+            drawRoute(userCoords, [e.latlng.lat, e.latlng.lng], "Seçilen Konum");
+        });
+
+        // Rota çizdirme fonksiyonu
+        function drawRoute(start, end, destinationName) {
+            if (routingControl) {
+                map.removeControl(routingControl);
+            }
+
+            routingControl = L.Routing.control({
+                waypoints: [
+                    L.latLng(start[0], start[1]),
+                    L.latLng(end[0], end[1])
+                ],
+                routeWhileDragging: false,
+                language: 'tr',
+                showAlternatives: true,
+                fitSelectedRoutes: true,
+                lineOptions: {
+                    styles: [{ color: '#007AFF', weight: 6, opacity: 0.8 }]
+                }
+            }).addTo(map);
+
+            statusTitle.innerText = "Rota Oluşturuldu";
+            statusDesc.innerText = destinationName + " yönüne gidiyorsun.";
+        }
+
+        // Arama Butonu İşlevi (Nominatim API ile konum arama)
+        document.getElementById('search-btn').addEventListener('click', () => {
+            const query = document.getElementById('destination-input').value;
+            if (!query) return;
+
+            if (!userCoords) {
+                alert("Lütfen önce konumunuzu belirleyin.");
+                return;
+            }
+
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        const destLat = parseFloat(data[0].lat);
+                        const destLng = parseFloat(data[0].lon);
+                        drawRoute(userCoords, [destLat, destLng], data[0].display_name.split(',')[0]);
+                    } else {
+                        alert("Aradığınız konum bulunamadı.");
+                    }
+                })
+                .catch(() => alert("Arama sırasında bir hata oluştu."));
+        });
+    </script>
 </body>
 </html>
