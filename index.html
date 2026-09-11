@@ -2,8 +2,8 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Navigasyon ve Harita Uygulaması</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobil Navigasyon</title>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <!-- Leaflet Routing Machine CSS -->
@@ -12,14 +12,13 @@
 </head>
 <body>
 
-    <div id="sidebar">
-        <h2>Harita & Navigasyon</h2>
-        <p>Gitmek istediğin noktayı haritaya tıklayarak seçebilir veya konumunu bulabilirsin.</p>
-        <button id="locate-btn">Konumumu Bul</button>
-        <div id="route-info"></div>
-    </div>
-
     <div id="map"></div>
+
+    <div id="panel">
+        <h3>Navigasyon Paneli</h3>
+        <p>Haritada bir yere tıkla veya konumunu bul.</p>
+        <button id="locate-btn">Konumumu Bul</button>
+    </div>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
