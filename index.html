@@ -12,6 +12,7 @@
             --bg-dark: #0b132b;
             --bg-card: #1c2541;
             --accent-blue: #0066ff;
+            --accent-green: #2ecc71;
             --accent-red: #ff3333;
             --text-main: #ffffff;
             --text-secondary: #8d99ae;
@@ -26,19 +27,33 @@
         /* Harita Ekranı */
         #map { width: 100%; height: 100%; position: absolute; z-index: 1; }
         
-        /* Üst Bilgi Kartı */
-        .top-nav-card {
-            position: absolute; top: 15px; left: 15px; right: 15px; z-index: 10;
-            background: rgba(28, 37, 65, 0.9); padding: 12px 16px; border-radius: 12px;
-            backdrop-filter: blur(10px); display: flex; justify-content: space-between; align-items: center;
-            border: 1px solid rgba(255,255,255,0.1);
+        /* Üst Tır Navigasyon Paneli (Görseldeki Gibi) */
+        .top-vehicle-panel {
+            position: absolute; top: 15px; left: 15px; right: 15px; z-index: 1000;
+            background: rgba(28, 37, 65, 0.95); padding: 12px; border-radius: 12px;
+            backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1);
         }
-        .route-summary-bottom {
-            position: absolute; bottom: 20px; left: 15px; right: 15px; z-index: 10;
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .panel-title { font-size: 15px; font-weight: bold; color: white; }
+        .toggle-btn { background: var(--accent-blue); color: white; border: none; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
+        
+        .config-body { display: block; margin-top: 8px; }
+        .config-body.hidden { display: none; }
+        .config-group { margin-bottom: 8px; }
+        .config-group label { display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 3px; }
+        .config-select, .config-input { width: 100%; padding: 8px; background: #0b132b; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: white; font-size: 13px; }
+
+        /* Alt Yolculuk Kontrol Kartı */
+        .trip-bottom-card {
+            position: absolute; bottom: 20px; left: 15px; right: 15px; z-index: 1000;
             background: rgba(28, 37, 65, 0.95); padding: 15px; border-radius: 14px;
-            backdrop-filter: blur(10px); display: flex; justify-content: space-around; text-align: center;
-            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px); text-align: center; border: 1px solid rgba(255,255,255,0.1); display: none;
         }
+        .trip-bottom-card.active { display: block; }
+        .trip-text { font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; font-weight: 500; }
+        
+        .btn-start-trip { width: 100%; padding: 12px; background: var(--accent-green); color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        .btn-end-trip { width: 100%; padding: 12px; background: var(--accent-red); color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer; }
 
         /* Ana Sayfa Stili */
         .home-header { padding: 30px 20px; text-align: center; background: linear-gradient(180deg, #1c2541 0%, #0b132b 100%); }
@@ -92,18 +107,39 @@
 
     <!-- 2. HARİTA & NAVİGASYON EKRANI -->
     <div id="screen-map" class="screen">
-        <div class="top-nav-card">
-            <div>
-                <span style="font-size: 12px; color: var(--text-secondary);">İstanbul ➔ Ankara</span>
-                <div style="font-weight: bold; font-size: 14px;">Otoyol (O-7)</div>
+        <!-- İstediğin Üst Araç Seçim Paneli -->
+        <div class="top-vehicle-panel">
+            <div class="panel-header">
+                <span class="panel-title">Tır Navigasyonu</span>
+                <button class="toggle-btn" onclick="togglePanel()">Kapat / Aç</button>
             </div>
-            <div style="background: var(--accent-blue); padding: 6px 12px; border-radius: 8px; font-weight: bold; font-size: 14px;">1.2 km</div>
+            <div class="config-body" id="vehicleConfigPanel">
+                <div class="config-group">
+                    <label>Araç Tipi</label>
+                    <select class="config-select" id="vehicleType" onchange="handleVehicleChange()">
+                        <option value="heavy">Ağır Vasıta / TIR (40 T)</option>
+                        <option value="kamyonet">Kamyonet</option>
+                        <option value="car">Otomobil</option>
+                    </select>
+                </div>
+                <div class="config-group" id="heightGroup">
+                    <label>Araç Yüksekliği (Metre)</label>
+                    <input type="number" class="config-input" id="vehicleHeight" value="4.20" step="0.1">
+                </div>
+                <div class="config-group" id="weightGroup">
+                    <label>Araç Ağırlığı (Ton)</label>
+                    <input type="number" class="config-input" id="vehicleWeight" value="40">
+                </div>
+                <button class="btn-primary" style="width: 100%; margin: 5px 0 0 0; padding: 10px; font-size: 14px;" onclick="calculateRoute()">Yasakları Eleyerek Rota Hesapla</button>
+            </div>
         </div>
+
         <div id="map"></div>
-        <div class="route-summary-bottom">
-            <div><span style="font-size: 11px; color: var(--text-secondary);">Kalan Mesafe</span><div style="font-weight: bold; font-size: 16px;">482 km</div></div>
-            <div><span style="font-size: 11px; color: var(--text-secondary);">Tahmini Varış</span><div style="font-weight: bold; font-size: 16px;">5 sa 42 dk</div></div>
-            <div><span style="font-size: 11px; color: var(--text-secondary);">Varış Zamanı</span><div style="font-weight: bold; font-size: 16px;">19:37</div></div>
+
+        <!-- Alt Yolculuk Başlat / Bitir Kartı -->
+        <div class="trip-bottom-card" id="tripCard">
+            <div class="trip-text" id="tripInfoText">Mesafe: 482 km | Tahmini Süre: 5 sa 42 dk</div>
+            <button class="btn-start-trip" id="tripActionBtn" onclick="toggleTripState()">YOLCULUĞA BAŞLA</button>
         </div>
     </div>
 
@@ -150,15 +186,26 @@
 </div>
 
 <script>
-    const apiKey = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYzMTU3MGQ5YWU1NDQzYzRiYjBmZWNiYWYwNzAyZWZjIiwiaCI6Im11cm11cjY0In0="; // Verdiğin API Key
+    const apiKey = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYzMTU3MGQ5YWU1NDQzYzRiYjBmZWNiYWYwNzAyZWZjIiwiaCI6Im11cm11cjY0In0=";
     let map, routeLayer;
+    let tripStarted = false;
+
+    // Sesli Asistan Fonksiyonu
+    function speak(text) {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'tr-TR';
+            utterance.rate = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+    }
 
     function switchScreen(screenId) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         document.getElementById(screenId).classList.add('active');
         
-        // İlgili nav ikonunu aktif yap
         if(screenId === 'screen-home') document.querySelectorAll('.nav-item')[0].classList.add('active');
         if(screenId === 'screen-map') {
             document.querySelectorAll('.nav-item')[1].classList.add('active');
@@ -169,7 +216,6 @@
     }
 
     function initMap() {
-        // İstanbul Sultanbeyli merkezli harita başlatma
         map = L.map('map', {zoomControl: false}).setView([40.9631, 29.2662], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
@@ -177,23 +223,77 @@
         }).addTo(map);
     }
 
+    function togglePanel() {
+        const panel = document.getElementById('vehicleConfigPanel');
+        panel.classList.toggle('hidden');
+    }
+
+    function handleVehicleChange() {
+        const type = document.getElementById('vehicleType').value;
+        const heightGroup = document.getElementById('heightGroup');
+        const weightGroup = document.getElementById('weightGroup');
+        
+        if(type === 'car') {
+            heightGroup.style.display = 'none';
+            weightGroup.style.display = 'none';
+        } else {
+            heightGroup.style.display = 'block';
+            weightGroup.style.display = 'block';
+        }
+    }
+
     function calculateRoute() {
         switchScreen('screen-map');
-        // Örnek olarak İstanbul -> Ankara koordinatları arası rota çizimi
+        togglePanel(); // Hesaplama yapılınca paneli kapatıp haritayı göster
+
         const startCoord = [29.2662, 40.9631]; // Sultanbeyli
-        const endCoord = [32.8597, 39.9334];   // Ankara
+        const endCoord = [32.8597, 39.9334];   // Ankara Örnek
         
-        fetch(`https://api.openrouteservice.org/v2/directions/driving-heavy?api_key=${apiKey}&start=${startCoord.join(',')}&end=${endCoord.join(',')}`)
+        const vehicleType = document.getElementById('vehicleType').value;
+        const profile = vehicleType === 'heavy' ? 'driving-heavy' : 'driving-car';
+
+        fetch(`https://api.openrouteservice.org/v2/directions/${profile}?api_key=${apiKey}&start=${startCoord.join(',')}&end=${endCoord.join(',')}`)
         .then(response => response.json())
         .then(data => {
             if(data.features && data.features.length > 0) {
                 const coords = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                const summary = data.features[0].properties.summary;
+                const km = (summary.distance / 1000).toFixed(1);
+                const mins = Math.round(summary.duration / 60);
+
                 if(routeLayer) map.removeLayer(routeLayer);
                 routeLayer = L.polyline(coords, {color: '#0066ff', weight: 6}).addTo(map);
                 map.fitBounds(routeLayer.getBounds());
+
+                // Rota oluştu, alt yolculuk kartını göster
+                document.getElementById('tripInfoText').innerText = `Mesafe: ${km} km | Tahmini Süre: ${mins} dk`;
+                document.getElementById('tripCard').classList.add('active');
+                tripStarted = false;
+                const btn = document.getElementById('tripActionBtn');
+                btn.innerText = "YOLCULUĞA BAŞLA";
+                btn.className = "btn-start-trip";
             }
         })
-        .catch(err => console.log("Rota çekilemedi, çevrimdışı mod aktif.", err));
+        .catch(err => console.log("Rota çekilemedi.", err));
+    }
+
+    function toggleTripState() {
+        if(!tripStarted) {
+            // Yolculuk Başlat
+            tripStarted = true;
+            speak("Navigasyon başlatılıyor. Güvenli sürüşler dilerim, TruckNav'ı seçtiğiniz için teşekkür ederim.");
+            const btn = document.getElementById('tripActionBtn');
+            btn.innerText = "YOLCULUĞU BİTİR";
+            btn.className = "btn-end-trip";
+        } else {
+            // Yolculuğu Bitir
+            speak("Yolculuk sonlandırılıyor.");
+            setTimeout(() => {
+                document.getElementById('tripCard').classList.remove('active');
+                if(routeLayer) map.removeLayer(routeLayer);
+                tripStarted = false;
+            }, 1200);
+        }
     }
 
     window.onload = initMap;
