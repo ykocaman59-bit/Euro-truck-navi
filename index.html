@@ -7,11 +7,16 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Routing Machine (Gerçek Rota Çizimi İçin) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
     <style>
         body { background-color: #0b1329; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         .screen { display: none; }
         .screen.active { display: flex; }
         #map { height: 100%; width: 100%; }
+        /* Rota talimat kutusunu gizle, sadece harita üstü paneli kullanalım */
+        .leaflet-routing-container { display: none !important; }
     </style>
 </head>
 <body class="h-screen flex flex-col justify-between overflow-hidden">
@@ -31,20 +36,20 @@
                         <span class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
                         <div>
                             <p class="text-xs text-gray-400">Canlı Konum</p>
-                            <p id="current-location-text" class="text-sm font-semibold">Konum alınıyor...</p>
+                            <p id="current-location-text" class="text-sm font-semibold">Sultanbeyli / İstanbul</p>
                         </div>
                     </div>
                     <div class="flex items-center space-x-3">
                         <span class="w-3 h-3 bg-red-500 rounded-full"></span>
                         <div class="w-full">
                             <p class="text-xs text-gray-400">Varış Noktası</p>
-                            <input type="text" id="destination-input" placeholder="Örn: Ankara, İnegöl, İzmir..." class="w-full bg-transparent text-sm focus:outline-none text-white placeholder-gray-500 mt-1">
+                            <input type="text" id="destination-input" placeholder="Örn: Roma, İtalya veya Ankara" class="w-full bg-transparent text-sm focus:outline-none text-white placeholder-gray-500 mt-1" value="Roma, İtalya">
                         </div>
                     </div>
                 </div>
 
-                <button onclick="startNavigation()" class="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition duration-200">
-                    Navigasyonu Başlat
+                <button onclick="calculateAndNavigate()" class="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition duration-200">
+                    Rota Oluştur ve Başla
                 </button>
             </div>
 
@@ -74,25 +79,25 @@
                 <div class="flex items-center space-x-3">
                     <span class="bg-blue-600 p-2 rounded-xl text-xl">⬆️</span>
                     <div>
-                        <p id="nav-instruction" class="text-sm font-bold">GPS Rotası Aktif</p>
-                        <p id="target-display" class="text-xs text-gray-400">Hedef bekleniyor...</p>
+                        <p id="nav-instruction" class="text-sm font-bold">Rota Aktif</p>
+                        <p id="target-display" class="text-xs text-gray-400">Hedef: Roma, İtalya</p>
                     </div>
                 </div>
-                <button onclick="stopNavigation()" class="bg-red-600 text-xs px-3 py-1.5 rounded-lg font-bold text-white">Çıkış</button>
+                <button onclick="switchScreen('screen-home')" class="bg-red-600 text-xs px-3 py-1.5 rounded-lg font-bold text-white">Çıkış</button>
             </div>
 
             <div class="absolute bottom-4 left-4 right-4 z-10 bg-slate-900/90 backdrop-blur border border-slate-700 p-4 rounded-2xl flex justify-between items-center shadow-xl">
                 <div>
-                    <p id="stat-distance" class="text-lg font-black text-blue-400">-- km</p>
+                    <p id="stat-distance" class="text-lg font-black text-blue-400">Hesaplanıyor...</p>
                     <p class="text-[10px] text-gray-400">Mesafe</p>
                 </div>
                 <div>
-                    <p id="stat-duration" class="text-lg font-bold">-- sa -- dk</p>
-                    <p class="text-[10px] text-gray-400">Süre</p>
+                    <p id="stat-duration" class="text-lg font-bold">--</p>
+                    <p class="text-[10px] text-gray-400">Tahmini Süre</p>
                 </div>
                 <div>
                     <p id="stat-arrival" class="text-lg font-bold">--:--</p>
-                    <p class="text-[10px] text-gray-400">Tahmini Varış</p>
+                    <p class="text-[10px] text-gray-400">Varış Zamanı</p>
                 </div>
             </div>
         </div>
@@ -101,7 +106,7 @@
         <div id="screen-profile" class="screen flex-col p-4 h-full">
             <div class="flex items-center mb-4">
                 <button onclick="switchScreen('screen-home')" class="mr-3 text-xl">←</button>
-                <h2 class="text-lg font-bold">Araç Profili (Tır Kısıtlamaları)</h2>
+                <h2 class="text-lg font-bold">Araç Profili</h2>
             </div>
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
                 <div>
@@ -121,7 +126,7 @@
                         <input type="text" id="profile-weight" value="40.0" class="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-xl text-sm mt-1 text-white">
                     </div>
                 </div>
-                <button onclick="saveProfile()" class="w-full bg-blue-600 hover:bg-blue-500 font-bold py-3 rounded-xl mt-4 text-white">Profili Kaydet</button>
+                <button onclick="alert('Profil Kaydedildi!'); switchScreen('screen-home');" class="w-full bg-blue-600 font-bold py-3 rounded-xl mt-4 text-white">Kaydet</button>
             </div>
         </div>
 
@@ -138,13 +143,6 @@
                         <p class="text-xs text-gray-400">Güvenli park, duş, market • 24 Saat</p>
                     </div>
                     <span class="text-green-400 font-bold text-sm">★ 4.7</span>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center justify-between">
-                    <div>
-                        <p class="font-bold text-sm">⛽ Opet Tır Yakıt İstasyonu</p>
-                        <p class="text-xs text-gray-400">Geniş akaryakıt pompaları • Adblue</p>
-                    </div>
-                    <span class="text-green-400 font-bold text-sm">★ 4.9</span>
                 </div>
             </div>
         </div>
@@ -167,8 +165,8 @@
     </div>
 
     <script>
-        let map, userMarker, watchId;
-        let defaultLat = 40.9833, defaultLng = 29.2833; // Sultanbeyli merkez varsayılan
+        let map, routingControl;
+        let startCoord = [40.9833, 29.2833]; // Sultanbeyli merkez
 
         function switchScreen(screenId) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -176,75 +174,72 @@
             
             if(screenId === 'screen-map') {
                 setTimeout(() => {
-                    initMap();
+                    if (!map) {
+                        map = L.map('map').setView(startCoord, 6);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            maxZoom: 19,
+                        }).addTo(map);
+                    } else {
+                        map.invalidateSize();
+                    }
                 }, 200);
             }
         }
 
-        function initMap() {
-            if (!map) {
-                map = L.map('map').setView([defaultLat, defaultLng], 14);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: 'TIRNAV'
-                }).addTo(map);
-
-                userMarker = L.marker([defaultLat, defaultLng]).addTo(map).bindPopup("Tırınızın Konumu").openPopup();
-                trackGPS();
-            } else {
-                map.invalidateSize();
-            }
-        }
-
-        function trackGPS() {
-            if ("geolocation" in navigator) {
-                navigator.geolocation.getCurrentPosition(position => {
-                    defaultLat = position.coords.latitude;
-                    defaultLng = position.coords.longitude;
-                    map.setView([defaultLat, defaultLng], 15);
-                    userMarker.setLatLng([defaultLat, defaultLng]);
-                    document.getElementById('current-location-text').innerText = "Konum Aktif (GPS)";
-                }, error => {
-                    document.getElementById('current-location-text').innerText = "Sultanbeyli / İstanbul (Varsayılan)";
-                }, { enableHighAccuracy: true });
-            }
-        }
-
-        function startNavigation() {
-            let destination = document.getElementById('destination-input').value;
-            if(!destination) {
+        function calculateAndNavigate() {
+            let destQuery = document.getElementById('destination-input').value;
+            if(!destQuery) {
                 alert("Lütfen bir varış noktası girin!");
                 return;
             }
-            document.getElementById('target-display').innerText = destination;
-            document.getElementById('stat-distance').innerText = "248 km"; // Gerçek hesaplama için aktif konum ile hedef
-            document.getElementById('stat-duration').innerText = "3 sa 15 dk";
-            
-            let now = new Date();
-            now.setHours(now.getHours() + 3);
-            now.setMinutes(now.getMinutes() + 15);
-            document.getElementById('stat-arrival').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
             switchScreen('screen-map');
-        }
 
-        function stopNavigation() {
-            switchScreen('screen-home');
-        }
+            // Nominatim API ile yazılan şehri (örn: Roma, İtalya) koordinata çevir
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destQuery)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if(data && data.length > 0) {
+                        let destLat = parseFloat(data[0].lat);
+                        let destLng = parseFloat(data[0].lon);
 
-        function saveProfile() {
-            let h = document.getElementById('profile-height').value;
-            alert("Araç profili kaydedildi! Rotalar " + h + "m yükseklik sınırına göre filtrelenecek.");
-            switchScreen('screen-home');
-        }
+                        if(map) {
+                            if(routingControl) {
+                                map.removeControl(routingControl);
+                            }
 
-        // Açılışta GPS konumunu almaya çalış
-        if ("geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(position => {
-                defaultLat = position.coords.latitude;
-                defaultLng = position.coords.longitude;
-                document.getElementById('current-location-text').innerText = "Konum Alındı (GPS)";
-            });
+                            // Gerçek rota çizgisi ve mesafe hesaplama
+                            routingControl = L.Routing.control({
+                                waypoints: [
+                                    L.latLng(startCoord[0], startCoord[1]),
+                                    L.latLng(destLat, destLng)
+                                ],
+                                routeWhileDragging: false,
+                                createMarker: function() { return null; }, // Ekstra marker karmaşasını önle
+                                addWaypoints: false
+                            }).on('routesfound', function(e) {
+                                let routes = e.routes;
+                                let summary = routes[0].summary;
+                                let km = (summary.totalDistance / 1000).toFixed(0);
+                                let hours = Math.floor(summary.totalTime / 3600);
+                                let minutes = Math.floor((summary.totalTime % 3600) / 60);
+
+                                document.getElementById('stat-distance').innerText = km + " km";
+                                document.getElementById('stat-duration').innerText = hours + " sa " + minutes + " dk";
+                                
+                                let arrivalDate = new Date(new Date().getTime() + summary.totalTime * 1000);
+                                document.getElementById('stat-arrival').innerText = arrivalDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                document.getElementById('target-display').innerText = "Hedef: " + destQuery;
+                            }).addTo(map);
+                        }
+                    } else {
+                        alert("Hedef konum bulunamadı, lütfen geçerli bir yer yazın.");
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Rota hesaplanırken bir hata oluştu.");
+                });
         }
     </script>
 </body>
