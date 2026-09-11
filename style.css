@@ -1,0 +1,59 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    display: flex;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+}
+
+#sidebar {
+    width: 300px;
+    background: #f8f9fa;
+    padding: 20px;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    z-index: 1000;
+}
+
+#sidebar h2 {
+    font-size: 1.2rem;
+    color: #333;
+}
+
+#sidebar p {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+#locate-btn {
+    padding: 10px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#locate-btn:hover {
+    background: #0056b3;
+}
+
+#map {
+    flex-grow: 1;
+    height: 100%;
+}
+
+.leaflet-routing-container {
+    background: white;
+    padding: 10px;
+    border-radius: 5px;
+    max-height: 200px;
+    overflow-y: auto;
+}
