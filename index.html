@@ -3,210 +3,200 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Navigasyon</title>
-    <!-- Leaflet CSS -->
+    <title>TIRNAV - Tırların Yol Arkadaşı</title>
+    <!-- Leaflet Harita Kütüphanesi -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body, html { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        #map { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        :root {
+            --bg-dark: #0b132b;
+            --bg-card: #1c2541;
+            --accent-blue: #0066ff;
+            --accent-red: #ff3333;
+            --text-main: #ffffff;
+            --text-secondary: #8d99ae;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-main); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         
-        /* Üst Arama / Kontrol Paneli */
-        .top-panel {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            right: 15px;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+        .app-container { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: calc(100% - 70px); display: none; flex-direction: column; background: var(--bg-dark); overflow-y: auto; }
+        .screen.active { display: flex; }
+
+        /* Harita Ekranı */
+        #map { width: 100%; height: 100%; position: absolute; z-index: 1; }
+        
+        /* Üst Bilgi Kartı */
+        .top-nav-card {
+            position: absolute; top: 15px; left: 15px; right: 15px; z-index: 10;
+            background: rgba(28, 37, 65, 0.9); padding: 12px 16px; border-radius: 12px;
+            backdrop-filter: blur(10px); display: flex; justify-content: space-between; align-items: center;
+            border: 1px solid rgba(255,255,255,0.1);
         }
-        .search-box {
-            display: flex;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            padding: 8px 12px;
-            align-items: center;
-        }
-        .search-box input {
-            flex: 1;
-            border: none;
-            outline: none;
-            font-size: 16px;
-            padding: 8px;
-            background: transparent;
-        }
-        .search-box button {
-            background: #007AFF;
-            color: white;
-            border: none;
-            padding: 10px 16px;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
+        .route-summary-bottom {
+            position: absolute; bottom: 20px; left: 15px; right: 15px; z-index: 10;
+            background: rgba(28, 37, 65, 0.95); padding: 15px; border-radius: 14px;
+            backdrop-filter: blur(10px); display: flex; justify-content: space-around; text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
         }
 
-        /* Alt Durum Çubuğu */
-        .bottom-panel {
-            position: absolute;
-            bottom: 30px;
-            left: 15px;
-            right: 15px;
-            z-index: 1000;
-            background: white;
-            padding: 15px 20px;
-            border-radius: 16px;
-            box-shadow: 0 4px 25px rgba(0,0,0,0.2);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        /* Ana Sayfa Stili */
+        .home-header { padding: 30px 20px; text-align: center; background: linear-gradient(180deg, #1c2541 0%, #0b132b 100%); }
+        .home-header h1 { font-size: 28px; color: var(--text-main); margin-top: 10px; }
+        .form-group { padding: 15px 20px; }
+        .form-group label { display: block; font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; }
+        .form-input { width: 100%; padding: 14px; background: var(--bg-card); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: white; font-size: 16px; }
+        .btn-primary { width: calc(100% - 40px); margin: 10px 20px; padding: 16px; background: var(--accent-blue); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; text-align: center; }
+
+        /* Uyarı Banner */
+        .alert-banner {
+            position: absolute; top: 15px; left: 15px; right: 15px; z-index: 20;
+            background: var(--accent-red); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 15px;
+            box-shadow: 0 4px 20px rgba(255,51,51,0.4);
         }
-        .info-text h4 { font-size: 15px; color: #1c1c1e; margin-bottom: 2px; }
-        .info-text p { font-size: 13px; color: #8e8e93; }
-        
-        .locate-btn {
-            background: #34C759;
-            color: white;
-            border: none;
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            box-shadow: 0 4px 10px rgba(52,199,89,0.3);
-            cursor: pointer;
+
+        /* Alt Menü Çubuğu */
+        .bottom-nav {
+            height: 70px; background: var(--bg-card); display: flex; justify-content: space-around; align-items: center;
+            border-top: 1px solid rgba(255,255,255,0.05); z-index: 100;
         }
+        .nav-item { background: none; border: none; color: var(--text-secondary); display: flex; flex-direction: column; align-items: center; font-size: 11px; cursor: pointer; gap: 4px; }
+        .nav-item.active { color: var(--accent-blue); }
+        .nav-item svg { width: 22px; height: 22px; fill: currentColor; }
+
+        /* Genel Ayarlar Listesi */
+        .settings-list { padding: 20px; }
+        .setting-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
     </style>
 </head>
 <body>
 
-    <div id="map"></div>
+<div class="app-container">
+    <!-- 1. ANA SAYFA -->
+    <div id="screen-home" class="screen active">
+        <div class="home-header">
+            <svg width="60" height="60" viewBox="0 0 24 24" fill="#0066ff"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.62H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+            <h1>TIRNAV</h1>
+            <p style="color: var(--text-secondary); font-size: 13px;">Tırların Yol Arkadaşı</p>
+        </div>
+        <div class="form-group">
+            <label>Mevcut Konum</label>
+            <input type="text" class="form-input" id="start-loc" value="Sultanbeyli / İstanbul">
+        </div>
+        <div class="form-group">
+            <label>Varış Noktası</label>
+            <input type="text" class="form-input" id="end-loc" placeholder="Adres, şehir veya ülke girin">
+        </div>
+        <button class="btn-primary" onclick="calculateRoute()">Rota Oluştur</button>
+    </div>
 
-    <div class="top-panel">
-        <div class="search-box">
-            <input type="text" id="destination-input" placeholder="Gitmek istediğin yeri yaz (Örn: Kadıköy)...">
-            <button id="search-btn">Git</button>
+    <!-- 2. HARİTA & NAVİGASYON EKRANI -->
+    <div id="screen-map" class="screen">
+        <div class="top-nav-card">
+            <div>
+                <span style="font-size: 12px; color: var(--text-secondary);">İstanbul ➔ Ankara</span>
+                <div style="font-weight: bold; font-size: 14px;">Otoyol (O-7)</div>
+            </div>
+            <div style="background: var(--accent-blue); padding: 6px 12px; border-radius: 8px; font-weight: bold; font-size: 14px;">1.2 km</div>
+        </div>
+        <div id="map"></div>
+        <div class="route-summary-bottom">
+            <div><span style="font-size: 11px; color: var(--text-secondary);">Kalan Mesafe</span><div style="font-weight: bold; font-size: 16px;">482 km</div></div>
+            <div><span style="font-size: 11px; color: var(--text-secondary);">Tahmini Varış</span><div style="font-weight: bold; font-size: 16px;">5 sa 42 dk</div></div>
+            <div><span style="font-size: 11px; color: var(--text-secondary);">Varış Zamanı</span><div style="font-weight: bold; font-size: 16px;">19:37</div></div>
         </div>
     </div>
 
-    <div class="bottom-panel">
-        <div class="info-text">
-            <h4 id="status-title">Konum Bekleniyor</h4>
-            <p id="status-desc">Haritadan bir yer seç veya arama yap.</p>
+    <!-- 3. UYARI EKRANI (Köprü / Sınırlama) -->
+    <div id="screen-alert" class="screen" style="background: rgba(11, 19, 43, 0.95); padding: 20px; justify-content: center;">
+        <div class="alert-banner" style="position: relative; margin-bottom: 20px;">
+            <div>
+                <h3 style="font-size: 18px; margin-bottom: 5px;">DİKKAT!</h3>
+                <p style="font-size: 14px;">4.00 m aracınız için yüksek! 3.80 m köprü var.</p>
+            </div>
         </div>
-        <button class="locate-btn" id="locate-btn" title="Konumumu Bul">📍</button>
+        <button class="btn-primary" onclick="switchScreen('screen-map')">Tamam</button>
     </div>
 
-    <!-- Leaflet JS ve Rota Kütüphanesi -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    <!-- 7. AYARLAR -->
+    <div id="screen-settings" class="screen">
+        <div style="padding: 20px; font-size: 20px; font-weight: bold;">Ayarlar</div>
+        <div class="settings-list">
+            <div class="setting-item"><span>Navigasyon Sesleri</span><input type="checkbox" checked></div>
+            <div class="setting-item"><span>Harita Görünümü</span><span style="color: var(--text-secondary);">Uydu ></span></div>
+            <div class="setting-item"><span>Birimler</span><span style="color: var(--text-secondary);">Kilometre ></span></div>
+        </div>
+    </div>
 
-    <script>
-        // Haritayı başlat (İstanbul merkezli)
-        const map = L.map('map', { zoomControl: false }).setView([41.0082, 28.9784], 13);
+    <!-- ALT NAVİGASYON ÇUBUĞU -->
+    <div class="bottom-nav">
+        <button class="nav-item active" onclick="switchScreen('screen-home')">
+            <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            Ana Sayfa
+        </button>
+        <button class="nav-item" onclick="switchScreen('screen-map')">
+            <svg viewBox="0 0 24 24"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.1V5l6 2.1V19z"/></svg>
+            Harita
+        </button>
+        <button class="nav-item" onclick="switchScreen('screen-alert')">
+            <svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+            Uyarılar
+        </button>
+        <button class="nav-item" onclick="switchScreen('screen-settings')">
+            <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.47l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.47l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+            Ayarlar
+        </button>
+    </div>
+</div>
 
+<script>
+    const apiKey = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYzMTU3MGQ5YWU1NDQzYzRiYjBmZWNiYWYwNzAyZWZjIiwiaCI6Im11cm11cjY0In0="; // Verdiğin API Key
+    let map, routeLayer;
+
+    function switchScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+        
+        // İlgili nav ikonunu aktif yap
+        if(screenId === 'screen-home') document.querySelectorAll('.nav-item')[0].classList.add('active');
+        if(screenId === 'screen-map') {
+            document.querySelectorAll('.nav-item')[1].classList.add('active');
+            setTimeout(() => { if(map) map.invalidateSize(); }, 200);
+        }
+        if(screenId === 'screen-alert') document.querySelectorAll('.nav-item')[2].classList.add('active');
+        if(screenId === 'screen-settings') document.querySelectorAll('.nav-item')[3].classList.add('active');
+    }
+
+    function initMap() {
+        // İstanbul Sultanbeyli merkezli harita başlatma
+        map = L.map('map', {zoomControl: false}).setView([40.9631, 29.2662], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap'
         }).addTo(map);
+    }
 
-        L.control.zoom({ position: 'topright' }).addTo(map);
-
-        let userMarker = null;
-        let routingControl = null;
-        let userCoords = null;
-
-        // Kullanıcı konumunu takip et
-        const statusTitle = document.getElementById('status-title');
-        const statusDesc = document.getElementById('status-desc');
-
-        document.getElementById('locate-btn').addEventListener('click', () => {
-            if (!navigator.geolocation) {
-                alert("Tarayıcınız konum desteklemiyor.");
-                return;
+    function calculateRoute() {
+        switchScreen('screen-map');
+        // Örnek olarak İstanbul -> Ankara koordinatları arası rota çizimi
+        const startCoord = [29.2662, 40.9631]; // Sultanbeyli
+        const endCoord = [32.8597, 39.9334];   // Ankara
+        
+        fetch(`https://api.openrouteservice.org/v2/directions/driving-heavy?api_key=${apiKey}&start=${startCoord.join(',')}&end=${endCoord.join(',')}`)
+        .then(response => response.json())
+        .then(data => {
+            if(data.features && data.features.length > 0) {
+                const coords = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                if(routeLayer) map.removeLayer(routeLayer);
+                routeLayer = L.polyline(coords, {color: '#0066ff', weight: 6}).addTo(map);
+                map.fitBounds(routeLayer.getBounds());
             }
-            statusTitle.innerText = "Konum alınıyor...";
-            navigator.geolocation.getCurrentPosition(position => {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
-                userCoords = [lat, lng];
+        })
+        .catch(err => console.log("Rota çekilemedi, çevrimdışı mod aktif.", err));
+    }
 
-                map.setView(userCoords, 16);
-
-                if (userMarker) {
-                    userMarker.setLatLng(userCoords);
-                } else {
-                    userMarker = L.marker(userCoords).addTo(map).bindPopup("Buradasın").openPopup();
-                }
-                statusTitle.innerText = "Konum bulundu";
-                statusDesc.innerText = "Şimdi gitmek istediğin yeri ara veya haritaya dokun.";
-            }, () => {
-                alert("Konum izni reddedildi veya alınamadı.");
-                statusTitle.innerText = "Hata";
-                statusDesc.innerText = "Konum alınamadı.";
-            }, { enableHighAccuracy: true });
-        });
-
-        // Haritaya tıklayarak rota çizme
-        map.on('click', function(e) {
-            if (!userCoords) {
-                alert("Önce sağ alttaki yeşil konuma basarak kendi konumunu bulmalısın!");
-                return;
-            }
-            drawRoute(userCoords, [e.latlng.lat, e.latlng.lng], "Seçilen Konum");
-        });
-
-        // Rota çizdirme fonksiyonu
-        function drawRoute(start, end, destinationName) {
-            if (routingControl) {
-                map.removeControl(routingControl);
-            }
-
-            routingControl = L.Routing.control({
-                waypoints: [
-                    L.latLng(start[0], start[1]),
-                    L.latLng(end[0], end[1])
-                ],
-                routeWhileDragging: false,
-                language: 'tr',
-                showAlternatives: true,
-                fitSelectedRoutes: true,
-                lineOptions: {
-                    styles: [{ color: '#007AFF', weight: 6, opacity: 0.8 }]
-                }
-            }).addTo(map);
-
-            statusTitle.innerText = "Rota Oluşturuldu";
-            statusDesc.innerText = destinationName + " yönüne gidiyorsun.";
-        }
-
-        // Arama Butonu İşlevi (Nominatim API ile konum arama)
-        document.getElementById('search-btn').addEventListener('click', () => {
-            const query = document.getElementById('destination-input').value;
-            if (!query) return;
-
-            if (!userCoords) {
-                alert("Lütfen önce konumunuzu belirleyin.");
-                return;
-            }
-
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data && data.length > 0) {
-                        const destLat = parseFloat(data[0].lat);
-                        const destLng = parseFloat(data[0].lon);
-                        drawRoute(userCoords, [destLat, destLng], data[0].display_name.split(',')[0]);
-                    } else {
-                        alert("Aradığınız konum bulunamadı.");
-                    }
-                })
-                .catch(() => alert("Arama sırasında bir hata oluştu."));
-        });
-    </script>
+    window.onload = initMap;
+</script>
 </body>
 </html>
