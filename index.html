@@ -19,11 +19,11 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { background-color: var(--bg-dark); color: var(--text-main); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         
-        .app-container { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; }
-        .screen { position: absolute; top: 0; left: 0; width: 100%; height: calc(100% - 70px); display: none; flex-direction: column; background: var(--bg-dark); overflow-y: auto; }
+        .app-container { flex: 1; position: relative; width: 100%; height: calc(100vh - 70px); overflow: hidden; }
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; background: var(--bg-dark); overflow-y: auto; }
         .screen.active { display: flex; }
 
-        #map { width: 100%; height: 100%; position: absolute; z-index: 1; }
+        #map { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
         
         .top-vehicle-panel {
             position: absolute; top: 15px; left: 15px; right: 15px; z-index: 1000;
@@ -73,7 +73,7 @@
 
         .bottom-nav {
             height: 70px; background: var(--bg-card); display: flex; justify-content: space-around; align-items: center;
-            border-top: 1px solid rgba(255,255,255,0.05); z-index: 1100; position: relative;
+            border-top: 1px solid rgba(255,255,255,0.05); z-index: 1100; flex-shrink: 0;
         }
         .nav-item { background: none; border: none; color: var(--text-secondary); display: flex; flex-direction: column; align-items: center; font-size: 11px; cursor: pointer; gap: 4px; }
         .nav-item.active { color: var(--accent-blue); }
@@ -168,26 +168,26 @@
             <div class="setting-item"><span>Birimler</span><span style="color: var(--text-secondary);">Kilometre</span></div>
         </div>
     </div>
+</div>
 
-    <!-- ALT MENÜ ÇUBUĞU -->
-    <div class="bottom-nav">
-        <button class="nav-item active" onclick="switchScreen('screen-home')">
-            <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-            Ana Sayfa
-        </button>
-        <button class="nav-item" onclick="switchScreen('screen-map')">
-            <svg viewBox="0 0 24 24"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.1V5l6 2.1V19z"/></svg>
-            Harita
-        </button>
-        <button class="nav-item" onclick="switchScreen('screen-alert')">
-            <svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
-            Uyarılar
-        </button>
-        <button class="nav-item" onclick="switchScreen('screen-settings')">
-            <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.47l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c-.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.47l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
-            Ayarlar
-        </button>
-    </div>
+<!-- ALT MENÜ ÇUBUĞU (Konteyner Dışına Taşındı - Sabit) -->
+<div class="bottom-nav">
+    <button class="nav-item active" onclick="switchScreen('screen-home')">
+        <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        Ana Sayfa
+    </button>
+    <button class="nav-item" onclick="switchScreen('screen-map')">
+        <svg viewBox="0 0 24 24"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.1V5l6 2.1V19z"/></svg>
+        Harita
+    </button>
+    <button class="nav-item" onclick="switchScreen('screen-alert')">
+        <svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+        Uyarılar
+    </button>
+    <button class="nav-item" onclick="switchScreen('screen-settings')">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.47l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c-.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.47l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        Ayarlar
+    </button>
 </div>
 
 <script>
@@ -207,6 +207,15 @@
         }
     }
 
+    // Haritayı sayfa yüklenir yüklenmez başlat
+    window.onload = function() {
+        map = L.map('map', {zoomControl: false}).setView([40.9833, 29.2662], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+    };
+
     function switchScreen(screenId) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -216,17 +225,9 @@
         if(screenId === 'screen-home') document.querySelectorAll('.nav-item')[0].classList.add('active');
         if(screenId === 'screen-map') {
             document.querySelectorAll('.nav-item')[1].classList.add('active');
-            setTimeout(() => {
-                if (!map) {
-                    map = L.map('map', {zoomControl: false}).setView([40.9833, 29.2662], 13);
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        maxZoom: 19,
-                        attribution: '© OpenStreetMap'
-                    }).addTo(map);
-                } else {
-                    map.invalidateSize();
-                }
-            }, 100);
+            if(map) {
+                setTimeout(() => { map.invalidateSize(); }, 100);
+            }
         }
         if(screenId === 'screen-alert') document.querySelectorAll('.nav-item')[2].classList.add('active');
         if(screenId === 'screen-settings') document.querySelectorAll('.nav-item')[3].classList.add('active');
@@ -251,17 +252,8 @@
         document.getElementById('vehicleConfigPanel').classList.add('hidden');
 
         setTimeout(() => {
-            if (!map) {
-                map = L.map('map', {zoomControl: false}).setView([40.9833, 29.2662], 13);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: '© OpenStreetMap'
-                }).addTo(map);
-            } else {
-                map.invalidateSize();
-            }
+            if(map) map.invalidateSize();
 
-            // Örnek Rota Çizgisi
             const routeCoords = [
                 [40.9631, 29.2662],
                 [40.9800, 29.3500],
@@ -324,19 +316,6 @@
             if(watchId) navigator.geolocation.clearWatch(watchId);
         }
     }
-
-    window.onload = function() {
-        // İlk açılışta harita objesini önceden hazırla
-        setTimeout(() => {
-            if (!map) {
-                map = L.map('map', {zoomControl: false}).setView([40.9833, 29.2662], 13);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: '© OpenStreetMap'
-                }).addTo(map);
-            }
-        }, 500);
-    };
 </script>
 </body>
 </html>
