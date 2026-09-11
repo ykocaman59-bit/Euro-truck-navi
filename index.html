@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Tır Navigasyonu - Canlı Sürüş Modu</title>
+  <title>Tır & Kamyonet Navigasyonu</title>
 
-  <!-- Leaflet Harita Kütüphanesi (API Key Gerektirmez) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -32,19 +31,20 @@
     #search-results {
       background: #fff;
       border-radius: 0 0 12px 12px;
-      max-height: 200px;
+      max-height: 220px;
       overflow-y: auto;
       display: none;
       border-top: 1px solid #eee;
     }
     .search-item {
-      padding: 10px 14px;
+      padding: 11px 14px;
       font-size: 0.85rem;
       border-bottom: 1px solid #eee;
-      color: #333;
+      color: #1e293b;
       cursor: pointer;
+      line-height: 1.3;
     }
-    .search-item:hover { background: #f0f4f8; }
+    .search-item:hover { background: #f1f5f9; }
 
     /* TIR PANELİ */
     #truck-panel {
@@ -105,7 +105,7 @@
       cursor: pointer;
     }
 
-    /* SÜRÜŞ BİLGİ KARTI VE YOLCULUĞU BİTİR */
+    /* SÜRÜŞ BİLGİ KARTI */
     #active-nav-card {
       position: absolute;
       top: 15px;
@@ -148,7 +148,7 @@
   <div id="search-box">
     <div class="search-input-wrapper">
       <span>🔍</span>
-      <input type="text" id="suggest-input" placeholder="Ev adresi, sokak veya kapı no yazın..." oninput="handleSearch(this.value)">
+      <input type="text" id="suggest-input" placeholder="Eren sokak no 7 Sultanbeyli veya dünya adresi..." oninput="handleSearch(this.value)">
     </div>
     <div id="search-results"></div>
   </div>
@@ -162,8 +162,8 @@
       <div class="form-group">
         <label>Araç Tipi</label>
         <select id="v_type">
-          <option value="truck">Ağır Vasıta / TIR (40 T)</option>
-          <option value="car">Kamyonet / Otomobil</option>
+          <option value="driving-hgv">Ağır Vasıta / TIR (40 T)</option>
+          <option value="driving-car">Kamyonet / Otomobil</option>
         </select>
       </div>
       <div class="form-group">
@@ -174,7 +174,7 @@
         <label>Araç Ağırlığı (Ton)</label>
         <input type="number" id="v_weight" value="40">
       </div>
-      <button class="btn-calc" onclick="calcRoute()">Yasakları Eleyerek Rota Hesapla</button>
+      <button class="btn-calc" onclick="calcHeiGITRoute()">HeiGIT Tır Rotası Hesapla</button>
     </div>
   </div>
 
@@ -189,35 +189,51 @@
   </div>
 
   <script>
+    // Aldığınız HeiGIT (OpenRouteService) API Key koda entegre edildi
+    const HEIGIT_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYzMTU3MGQ5YWU1NDQzYzRiYjBmZWNiYWYwNzAyZWZjIiwiaCI6Im11cm11cjY0In0=";
+
     let map, userMarker, targetMarker, routeLayer;
     let userCoords = null;
     let targetCoords = null;
     let watchId = null;
 
-    // 1. HARİTA KURULUMU
-    function initMap() {
-      map = L.map('map', { zoomControl: false }).setView([41.0082, 28.9784], 13);
+    window.onload = function() {
+      // Harita Kurulumu (Yandex Görünümlü Kartografya)
+      map = L.map('map', { zoomControl: false }).setView([40.9772, 29.2669], 13);
 
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         maxZoom: 19
       }).addTo(map);
 
-      // Konum Al
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition((pos) => {
-          userCoords = [pos.coords.latitude, pos.coords.longitude];
-          map.setView(userCoords, 16);
-          setUserMarker(userCoords);
-        }, (err) => {
-          alert("GPS konumunuz alınamadı. Lütfen konum iznini açın.");
-        }, { enableHighAccuracy: true });
-      }
+      // Konum Alma
+      getGPSLocation();
 
-      // Tıklayarak Varış Noktası Seçme
+      // Haritada Tıklayarak Varış Noktası Seçme
       map.on('click', (e) => {
         targetCoords = [e.latlng.lat, e.latlng.lng];
         setTargetMarker(targetCoords);
       });
+    };
+
+    function getGPSLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            userCoords = [pos.coords.latitude, pos.coords.longitude];
+            map.setView(userCoords, 16);
+            setUserMarker(userCoords);
+          },
+          (err) => {
+            // Konum alınamazsa varsayılan Sultanbeyli merkez
+            userCoords = [40.9772, 29.2669];
+            setUserMarker(userCoords);
+          },
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
+      } else {
+        userCoords = [40.9772, 29.2669];
+        setUserMarker(userCoords);
+      }
     }
 
     function setUserMarker(coords) {
@@ -235,7 +251,7 @@
       content.style.display = content.style.display === 'none' ? 'block' : 'none';
     }
 
-    // 2. ARAMA KUTUSU (Adres, Sokak, Kapı No)
+    // Yandex Altyapılı Hassas Adres / Kapı No Arama Motoru
     let searchTimeout;
     function handleSearch(query) {
       clearTimeout(searchTimeout);
@@ -244,69 +260,107 @@
 
       searchTimeout = setTimeout(async () => {
         try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=tr`);
+          // Yandex Geocoder Servis Sorgusu (Kapı no dahil dünya genelini tarar)
+          const res = await fetch(`https://geocode-maps.yandex.ru/1.x/?format=json&geocode=${encodeURIComponent(query)}&lang=tr_TR`);
           const data = await res.json();
+          const members = data.response.GeoObjectCollection.featureMember;
+          
           resultsDiv.innerHTML = '';
-          if (data && data.length > 0) {
+          if (members && members.length > 0) {
             resultsDiv.style.display = 'block';
-            data.forEach(item => {
+            members.forEach(item => {
+              const geoObj = item.GeoObject;
+              const coordsStr = geoObj.Point.pos.split(' '); // lon lat
+              const lat = parseFloat(coordsStr[1]);
+              const lon = parseFloat(coordsStr[0]);
+              const addressText = geoObj.metaDataProperty.GeocoderMetaData.text;
+
               const div = document.createElement('div');
               div.className = 'search-item';
-              div.innerText = item.display_name;
+              div.innerText = addressText;
               div.onclick = () => {
-                targetCoords = [parseFloat(item.lat), parseFloat(item.lon)];
+                targetCoords = [lat, lon];
                 setTargetMarker(targetCoords);
                 map.setView(targetCoords, 16);
                 resultsDiv.style.display = 'none';
-                document.getElementById('suggest-input').value = item.display_name;
+                document.getElementById('suggest-input').value = addressText;
               };
               resultsDiv.appendChild(div);
             });
           }
-        } catch (e) { console.error(e); }
-      }, 400);
+        } catch (e) { console.error("Arama hatası:", e); }
+      }, 350);
     }
 
-    // 3. ROTA HESAPLAMA
-    async function calcRoute() {
-      if (!userCoords) { alert("GPS konumunuz henüz alınamadı!"); return; }
-      if (!targetCoords) { alert("Lütfen arama kutusundan adres seçin veya haritada bir yere tıklayın!"); return; }
+    // HeiGIT (OpenRouteService) Tır Rota Hesaplama Entegrasyonu
+    async function calcHeiGITRoute() {
+      if (!userCoords) { alert("Konumunuz henüz alınamadı!"); return; }
+      if (!targetCoords) { alert("Lütfen adresi yazıp listeden seçin veya haritadan tıklayın!"); return; }
 
-      const url = `https://router.project-osrm.org/route/v1/driving/${userCoords[1]},${userCoords[0]};${targetCoords[1]},${targetCoords[0]}?overview=full&geometries=geojson`;
+      const profile = document.getElementById('v_type').value;
+      const height = parseFloat(document.getElementById('v_height').value);
+      const weight = parseFloat(document.getElementById('v_weight').value);
+
+      const url = `https://api.openrouteservice.org/v2/directions/${profile}/geojson`;
+
+      const requestBody = {
+        coordinates: [
+          [userCoords[1], userCoords[0]], // [lon, lat]
+          [targetCoords[1], targetCoords[0]]
+        ],
+        options: {
+          profile_params: {
+            restrictions: {
+              height: height,
+              weight: weight
+            }
+          }
+        }
+      };
 
       try {
-        const res = await fetch(url);
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': HEIGIT_API_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
+        });
+
         const data = await res.json();
 
-        if (data.routes && data.routes.length > 0) {
+        if (data.features && data.features.length > 0) {
           if (routeLayer) map.removeLayer(routeLayer);
 
-          const route = data.routes[0];
-          routeLayer = L.geoJSON(route.geometry, {
+          routeLayer = L.geoJSON(data.features[0], {
             style: { color: '#0284c7', weight: 6, opacity: 0.9 }
           }).addTo(map);
 
           map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
 
-          const distKm = (route.distance / 1000).toFixed(1);
-          const durMin = Math.round(route.duration / 60);
+          const summary = data.features[0].properties.summary;
+          const distKm = (summary.distance / 1000).toFixed(1);
+          const durMin = Math.round(summary.duration / 60);
 
           document.getElementById('route-summary-text').innerText = `Mesafe: ${distKm} km | Tahmini Süre: ${durMin} dk`;
           document.getElementById('bottom-start-bar').style.display = 'flex';
+        } else {
+          alert("Girdiğiniz tır ölçülerine göre uygun rota bulunamadı.");
         }
       } catch (e) {
-        alert("Rota hesaplanırken bir sorun oluştu.");
+        alert("Rota hesaplanırken bir hata oluştu. API anahtarını kontrol edin.");
       }
     }
 
-    // 4. CANLI NAVİGASYON
+    // Canlı Sürüş Navigasyonu
     function startNavigation() {
       document.getElementById('bottom-start-bar').style.display = 'none';
       document.getElementById('search-box').style.display = 'none';
       document.getElementById('truck-panel').style.display = 'none';
       document.getElementById('active-nav-card').style.display = 'flex';
 
-      speak("Navigasyon başlatılıyor. Güvenli sürüşler dilerim.");
+      speak("Tır navigasyonu başlatılıyor. Güvenli sürüşler.");
       map.setZoom(18);
 
       if (navigator.geolocation) {
@@ -314,7 +368,7 @@
           userCoords = [pos.coords.latitude, pos.coords.longitude];
           setUserMarker(userCoords);
           map.panTo(userCoords);
-          document.getElementById('nav-instruction').innerText = "Rota üzerinde ilerleyin";
+          document.getElementById('nav-instruction').innerText = "Tır rotası üzerinde ilerleyin";
         }, null, { enableHighAccuracy: true });
       }
     }
@@ -339,8 +393,6 @@
         window.speechSynthesis.speak(msg);
       }
     }
-
-    window.onload = initMap;
   </script>
 </body>
 </html>
