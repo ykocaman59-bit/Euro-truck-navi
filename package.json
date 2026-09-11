@@ -1,0 +1,10 @@
+{
+  "name": "tirnav",
+  "version": "1.0.0",
+  "description": "Tirlarin Yol Arkadasi",
+  "main": "index.html",
+  "scripts": {
+    "build": "echo 'Build successful'"
+  },
+  "dependencies": {}
+}
