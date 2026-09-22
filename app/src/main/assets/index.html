@@ -1,1 +1,272 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TIRNAV - Tırların Yol Arkadaşı</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #0b132b; color: #ffffff; }
+        
+        #app-container { width: 100%; height: 100%; display: flex; flex-direction: column; position: relative; }
+        
+        /* Header / Splash View */
+        .splash-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #0b132b 0%, #1c2541 50%, #3a506b 100%);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 9999; transition: opacity 0.5s ease;
+        }
+        .splash-logo { width: 120px; height: 120px; background: #3a86ff; border-radius: 25px; display: flex; justify-content: center; align-items: center; box-shadow: 0 10px 25px rgba(58,134,255,0.4); margin-bottom: 20px; }
+        .splash-logo i { font-size: 60px; color: #fff; }
+        .splash-title { font-size: 32px; font-weight: 800; letter-spacing: 2px; color: #fff; }
+        .splash-subtitle { font-size: 14px; color: #8d99ae; margin-top: 5px; }
 
+        /* Main Screen Views */
+        .view-pane { position: absolute; top: 0; left: 0; width: 100%; bottom: 65px; display: none; flex-direction: column; background: #0b132b; }
+        .view-pane.active { display: flex; }
+
+        #map { width: 100%; height: 100%; flex: 1; z-index: 1; }
+
+        /* Bottom Navigation Bar */
+        .bottom-nav {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 65px;
+            background: #1c2541; display: flex; justify-content: space-around; align-items: center;
+            border-top: 1px solid #3a506b; z-index: 1000;
+        }
+        .nav-item {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: #8d99ae; text-decoration: none; font-size: 11px; flex: 1; height: 100%; cursor: pointer; transition: 0.2s;
+        }
+        .nav-item i { font-size: 20px; margin-bottom: 3px; }
+        .nav-item.active { color: #3a86ff; background: rgba(58,134,255,0.05); }
+
+        /* UI Overlays */
+        .top-card {
+            position: absolute; top: 15px; left: 15px; right: 15px; background: rgba(28, 37, 65, 0.95);
+            padding: 15px; border-radius: 12px; z-index: 1000; box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            border: 1px solid #3a506b; backdrop-filter: blur(5px);
+        }
+        .input-group { display: flex; align-items: center; margin-bottom: 10px; background: #0b132b; border-radius: 8px; padding: 8px 12px; border: 1px solid #3a506b; }
+        .input-group i { color: #3a86ff; margin-right: 10px; }
+        .input-group input { background: transparent; border: none; color: #fff; width: 100%; outline: none; font-size: 14px; }
+        .btn-primary {
+            width: 100%; background: #3a86ff; color: #fff; border: none; padding: 12px; border-radius: 8px;
+            font-weight: 700; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(58,134,255,0.3);
+        }
+
+        /* Floating Alert Box */
+        .alert-banner {
+            position: absolute; top: 15px; left: 15px; right: 15px; background: #e63946; color: #fff;
+            padding: 12px 15px; border-radius: 10px; z-index: 2000; display: none; align-items: center; gap: 12px;
+            box-shadow: 0 5px 15px rgba(230,57,70,0.4); animation: pulseAlert 1.5s infinite;
+        }
+        @keyframes pulseAlert { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
+
+        /* Panels / Settings / Profile */
+        .content-panel { padding: 20px; overflow-y: auto; height: 100%; }
+        .panel-title { font-size: 20px; font-weight: 700; margin-bottom: 15px; color: #fff; display: flex; align-items: center; gap: 10px; }
+        .card-box { background: #1c2541; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #3a506b; }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .setting-row:last-child { border-bottom: none; }
+        
+        /* Toggle Switch */
+        .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #3a506b; transition: .3s; border-radius: 26px; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: #3a86ff; }
+        input:checked + .slider:before { transform: translateX(24px); }
+
+        .form-control { width: 100%; background: #0b132b; border: 1px solid #3a506b; color: #fff; padding: 10px; border-radius: 8px; margin-top: 5px; margin-bottom: 15px; }
+        label { font-size: 13px; color: #8d99ae; }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <!-- Splash Screen -->
+        <div id="splash" class="splash-screen">
+            <div class="splash-logo"><i class="fa-solid fa-truck-fast"></i></div>
+            <div class="splash-title">TIRNAV</div>
+            <div class="splash-subtitle">Tırların Yol Arkadaşı</div>
+        </div>
+
+        <!-- 1. Ana Sayfa (Harita + Rota Planlayıcı) -->
+        <div id="view-home" class="view-pane active">
+            <div id="map"></div>
+            <div class="alert-banner" id="alertBanner">
+                <i class="fa-solid fa-triangle-exclamation fa-2x"></i>
+                <div>
+                    <strong>DİKKAT! 4.00 m yüksek yüksek!</strong><br><small>3.80 m köprü var, rota yeniden hesaplanıyor.</small>
+                </div>
+            </div>
+            <div class="top-card">
+                <div class="input-group">
+                    <i class="fa-solid fa-location-dot"></i>
+                    <input type="text" id="startLoc" value="Sultanbeyli / İstanbul" readonly>
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-flag-checkered"></i>
+                    <input type="text" id="destLoc" placeholder="Varış noktası (Adres, şehir veya ülke)">
+                </div>
+                <button class="btn-primary" onclick="createRoute()"><i class="fa-solid fa-route"></i> Rota Oluştur</button>
+            </div>
+        </div>
+
+        <!-- 2. Harita / Navigasyon Görünümü -->
+        <div id="view-map" class="view-pane">
+            <div style="width:100%; height:100%; position:relative;">
+                <div id="map2" style="width:100%; height:100%;"></div>
+                <div style="position:absolute; bottom:20px; left:15px; right:15px; background:rgba(28,37,65,0.95); padding:15px; border-radius:12px; border:1px solid #3a506b;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-size:22px; font-weight:800; color:#3a86ff;">482 km</div>
+                            <div style="font-size:12px; color:#8d99ae;">Kalan Mesafe • 5 sa 42 dk</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:18px; font-weight:700;">19:37</div>
+                            <div style="font-size:12px; color:#4ade80;">Tır için uygun yol</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Tır Parkları & Hizmet Noktaları -->
+        <div id="view-parks" class="view-pane">
+            <div class="content-panel">
+                <div class="panel-title"><i class="fa-solid fa-square-parking" style="color:#3a86ff;"></i> Tır Parkları ve Tesisler</div>
+                <div class="card-box">
+                    <div style="font-weight:700; font-size:16px; margin-bottom:5px;">Tır Parkı - Kocaeli</div>
+                    <div style="font-size:13px; color:#8d99ae; margin-bottom:10px;">12 km • 24 saat açık • Güvenlikli</div>
+                    <button class="btn-primary" style="padding:8px;" onclick="alert('Park noktasına rota oluşturuldu!')">Rotaya Ekle</button>
+                </div>
+                <div class="card-box">
+                    <div style="font-weight:700; font-size:16px; margin-bottom:5px;">Anadolu Otoyolu Tesisleri</div>
+                    <div style="font-size:13px; color:#8d99ae; margin-bottom:10px;">45 km • Akaryakıt, Duş, Restoran</div>
+                    <button class="btn-primary" style="padding:8px;" onclick="alert('Park noktasına rota oluşturuldu!')">Rotaya Ekle</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Yakıt & Tır Araç Profili -->
+        <div id="view-fuel" class="view-pane">
+            <div class="content-panel">
+                <div class="panel-title"><i class="fa-solid fa-truck" style="color:#3a86ff;"></i> Araç Profili & Ölçüleri</div>
+                <div class="card-box">
+                    <label>Araç Türü</label>
+                    <select class="form-control">
+                        <option>Çekici + Dorse (Tır)</option>
+                        <option>Kamyon (10 Teker)</option>
+                        <option>Kırkayak Kamyon</option>
+                    </select>
+                    <label>Uzunluk (m)</label>
+                    <input type="text" class="form-control" value="16.50 m">
+                    <label>Genişlik (m)</label>
+                    <input type="text" class="form-control" value="2.55 m">
+                    <label>Yükseklik (m)</label>
+                    <input type="text" class="form-control" value="4.00 m">
+                    <label>Ağırlık (Ton)</label>
+                    <input type="text" class="form-control" value="40.0 Ton">
+                    <button class="btn-primary" onclick="alert('Araç profili başarıyla kaydedildi! Rotalar bu ölçülere göre filtrelenecek.')">Kaydet ve Güncelle</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Ayarlar -->
+        <div id="view-settings" class="view-pane">
+            <div class="content-panel">
+                <div class="panel-title"><i class="fa-solid fa-gear" style="color:#3a86ff;"></i> Ayarlar</div>
+                <div class="card-box">
+                    <div class="setting-row">
+                        <span>Navigasyon Sesli Uyarıları</span>
+                        <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+                    </div>
+                    <div class="setting-row">
+                        <span>Gece Modu (Koyu Tema)</span>
+                        <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+                    </div>
+                    <div class="setting-row">
+                        <span>Tır Yasağı Uyarı Bildirimleri</span>
+                        <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+                    </div>
+                </div>
+                <div class="card-box">
+                    <div style="font-weight:700; margin-bottom:5px;">TIRNAV v1.0.0</div>
+                    <div style="font-size:12px; color:#8d99ae;">Tır sürücüleri için yasaklı köprü ve tonaj uyumlu özel navigasyon sistemi.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alt Menü Barı -->
+        <div class="bottom-nav">
+            <a class="nav-item active" onclick="switchTab('home', this)"><i class="fa-solid fa-house"></i>Ana Sayfa</a>
+            <a class="nav-item" onclick="switchTab('map', this)"><i class="fa-solid fa-map-location-dot"></i>Harita</a>
+            <a class="nav-item" onclick="switchTab('parks', this)"><i class="fa-solid fa-square-parking"></i>Parklar</a>
+            <a class="nav-item" onclick="switchTab('fuel', this)"><i class="fa-solid fa-truck"></i>Profil</a>
+            <a class="nav-item" onclick="switchTab('settings', this)"><i class="fa-solid fa-gear"></i>Ayarlar</a>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Splash screen fadeout
+        setTimeout(() => {
+            const splash = document.getElementById('splash');
+            splash.style.opacity = '0';
+            setTimeout(() => splash.style.display = 'none', 500);
+        }, 1500);
+
+        // Harita Başlatma (İstanbul Sultanbeyli Merkezli)
+        let map = L.map('map').setView([40.9778, 29.2672], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Tır konum işareti
+        let truckIcon = L.divIcon({
+            html: '<div style="background:#3a86ff; width:36px; height:36px; border-radius:50%; display:flex; justify-content:center; align-items:center; border:2px solid #fff; box-shadow:0 0 10px rgba(0,0,0,0.5);"><i class="fa-solid fa-truck" style="color:#fff; font-size:16px;"></i></div>',
+            className: 'custom-truck-icon',
+            iconSize: [36, 36],
+            iconAnchor: [18, 18]
+        });
+        L.marker([40.9778, 29.2672], {icon: truckIcon}).addTo(map).bindPopup("<b>Mevcut Konum:</b> Sultanbeyli / İstanbul").openPopup();
+
+        function switchTab(tabId, element) {
+            document.querySelectorAll('.view-pane').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-' + tabId).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            if(tabId === 'map') {
+                setTimeout(() => { map2.invalidateSize(); }, 200);
+            }
+        }
+
+        // Harita 2 (Navigasyon ekranı için)
+        let map2 = L.map('map2').setView([41.0082, 28.9784], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map2);
+        L.marker([41.0082, 28.9784], {icon: truckIcon}).addTo(map2);
+
+        function createRoute() {
+            const dest = document.getElementById('destLoc').value;
+            if(!dest) {
+                alert('Lütfen geçerli bir varış noktası giriniz!');
+                return;
+            }
+            // Uyarı simülasyonu
+            const alertBanner = document.getElementById('alertBanner');
+            alertBanner.style.display = 'flex';
+            setTimeout(() => {
+                alertBanner.style.display = 'none';
+                switchTab('map', document.querySelectorAll('.nav-item')[1]);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
