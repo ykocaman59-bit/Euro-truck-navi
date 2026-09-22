@@ -1,1 +1,4 @@
-
+<resources>
+    <string name="app_name">TIRNAV</string>
+    <string name="arac_bilgileri_desc">Tır ölçüleri, tonaj ve yasaklı güzergah hesaplamaları için araç bilgisi izni.</string>
+</resources>
