@@ -37,7 +37,7 @@ jobs:
 
 
         # ---------------------------------------------------------
-        # ANDROID MANIFEST (İstediğiniz Tüm İzinler)
+        # ANDROID MANIFEST
         # ---------------------------------------------------------
 
         cat << 'EOF' > app/src/main/AndroidManifest.xml
@@ -47,7 +47,6 @@ jobs:
             <uses-permission android:name="android.permission.INTERNET" />
             <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
             
-            <!-- İstediğiniz İzinlerin Tam Listesi -->
             <uses-permission android:name="android.permission.CAMERA" />
             <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
             <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -100,7 +99,7 @@ jobs:
 
 
         # ---------------------------------------------------------
-        # SPLASH ACTIVITY (İlk Açılışta İzinleri Sorma Ekranı)
+        # SPLASH ACTIVITY
         # ---------------------------------------------------------
 
         cat << 'EOF' > app/src/main/java/com/github/ykocaman59bit/tirnav/SplashActivity.java
@@ -157,7 +156,6 @@ jobs:
                 fadeIn.setDuration(1000);
                 logoView.startAnimation(fadeIn);
 
-                // Uygulama açılışında 2 saniye sonra izinleri iste
                 new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                     @Override
                     public void run() {
@@ -171,6 +169,7 @@ jobs:
 
                 listPermissionsNeeded.add(Manifest.permission.CAMERA);
                 listPermissionsNeeded.add(Manifest.permission.ACCESS_FINE_LOCATION);
+                listPermissionsNeeded.add(Manifest.permission.ACCESS_COARSE_LOCATION);
                 listPermissionsNeeded.add(Manifest.permission.RECORD_AUDIO);
                 listPermissionsNeeded.add(Manifest.permission.READ_CONTACTS);
 
@@ -224,7 +223,7 @@ jobs:
 
 
         # ---------------------------------------------------------
-        # MAIN ACTIVITY
+        # MAIN ACTIVITY (WebView Geolocation Desteği Eklendi)
         # ---------------------------------------------------------
 
         cat << 'EOF' > app/src/main/java/com/github/ykocaman59bit/tirnav/MainActivity.java
@@ -236,6 +235,7 @@ jobs:
         import android.net.Uri;
         import android.os.Build;
         import android.os.Bundle;
+        import android.webkit.GeolocationPermissions;
         import android.webkit.PermissionRequest;
         import android.webkit.WebChromeClient;
         import android.webkit.WebResourceRequest;
@@ -269,6 +269,7 @@ jobs:
                 webSettings.setMediaPlaybackRequiresUserGesture(false);
                 webSettings.setAllowFileAccess(true);
                 webSettings.setAllowContentAccess(true);
+                webSettings.setGeolocationEnabled(true); // GPS Konum Desteği Aktif
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                     webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
@@ -292,6 +293,11 @@ jobs:
                 });
 
                 webView.setWebChromeClient(new WebChromeClient() {
+                    @Override
+                    public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+                        callback.invoke(origin, true, false); // Web sitesinin konum istemesine otomatik onay ver
+                    }
+
                     @Override
                     public void onPermissionRequest(final PermissionRequest request) {
                         runOnUiThread(new Runnable() {
