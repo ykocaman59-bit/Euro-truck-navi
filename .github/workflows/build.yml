@@ -26,7 +26,7 @@ jobs:
     - name: TIRNAV Android Gradle Projesini Oluştur ve Derle
       run: |
         # ---------------------------------------------------------
-        # DİZİNLER (Assets hariç diğerleri)
+        # DİZİNLER
         # ---------------------------------------------------------
 
         mkdir -p app/src/main/java/com/github/ykocaman59bit/tirnav
@@ -37,31 +37,26 @@ jobs:
 
 
         # ---------------------------------------------------------
-        # ANDROID MANIFEST
+        # ANDROID MANIFEST (Sadece Kamera ve İnternet)
         # ---------------------------------------------------------
 
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-            <!-- İnternet / Firebase -->
             <uses-permission android:name="android.permission.INTERNET" />
             <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-            <!-- KAMERA İZNİ -->
             <uses-permission android:name="android.permission.CAMERA" />
 
-            <!-- Kamera donanımı -->
             <uses-feature
                 android:name="android.hardware.camera"
                 android:required="false" />
-
             <uses-feature
                 android:name="android.hardware.camera.autofocus"
                 android:required="false" />
 
             <application
-                android:allowBackup="true"
+                android:allowBackup="false"
                 android:icon="@mipmap/ic_launcher"
                 android:label="TIRNAV"
                 android:roundIcon="@mipmap/ic_launcher_round"
@@ -69,20 +64,16 @@ jobs:
                 android:theme="@style/Theme.AppCompat.Light.NoActionBar"
                 android:usesCleartextTraffic="true">
 
-                <!-- Splash -->
                 <activity
                     android:name=".SplashActivity"
                     android:exported="true"
                     android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-
                     <intent-filter>
                         <action android:name="android.intent.action.MAIN" />
                         <category android:name="android.intent.category.LAUNCHER" />
                     </intent-filter>
-
                 </activity>
 
-                <!-- Ana WebView -->
                 <activity
                     android:name=".MainActivity"
                     android:exported="false"
