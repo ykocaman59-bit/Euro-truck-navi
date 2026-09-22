@@ -1,4 +1,4 @@
-Name: TIRNAV Android APK Builder
+name: TIRNAV Android APK Builder
 
 on:
   push:
@@ -390,9 +390,8 @@ jobs:
 
 
         # ---------------------------------------------------------
-        # VARSAYILAN LOGO OLUŞTURMA (Hata Almamak İçin)
+        # VARSAYILAN LOGO OLUŞTURMA
         # ---------------------------------------------------------
-        # Eğer depoda icon.svg yoksa düz renkli geçici bir logo üretir
         if [ ! -f icon.svg ]; then
           echo '<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192"><rect width="192" height="192" fill="#1e293b"/><text x="50%" y="50%" font-size="60" fill="#ffffff" text-anchor="middle" dominant-baseline="central">T</text></svg>' > icon.svg
         fi
