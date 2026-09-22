@@ -14,7 +14,7 @@
         
         #app-container { width: 100%; height: 100%; display: flex; flex-direction: column; position: relative; }
         
-        /* Header / Splash View */
+        /* Splash Screen */
         .splash-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(135deg, #0b132b 0%, #1c2541 50%, #3a506b 100%);
@@ -59,16 +59,17 @@
             font-weight: 700; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(58,134,255,0.3);
         }
         .btn-success {
-            background: #2ec4b6 !important; box-shadow: 0 4px 12px rgba(46,196,182,0.3) !important; margin-top: 10px;
+            background: #2ec4b6 !important; box-shadow: 0 4px 12px rgba(46,196,182,0.3) !important;
         }
 
-        /* Floating Alert Box */
-        .alert-banner {
-            position: absolute; top: 15px; left: 15px; right: 15px; background: #e63946; color: #fff;
-            padding: 12px 15px; border-radius: 10px; z-index: 2000; display: none; align-items: center; gap: 12px;
-            box-shadow: 0 5px 15px rgba(230,57,70,0.4); animation: pulseAlert 1.5s infinite;
+        /* Yol Tarifi Bilgi Paneli (Google Haritalar Tarzı) */
+        .navigation-instructions {
+            position: absolute; top: 15px; left: 15px; right: 15px; background: rgba(28, 37, 65, 0.95);
+            padding: 15px; border-radius: 12px; z-index: 1000; border: 1px solid #3a506b;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5); display: none;
         }
-        @keyframes pulseAlert { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
+        .instruction-step { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 5px; display: flex; align-items: center; gap: 10px; }
+        .instruction-sub { font-size: 13px; color: #8d99ae; }
 
         /* Panels / Settings / Profile */
         .content-panel { padding: 20px; overflow-y: auto; height: 100%; }
@@ -101,121 +102,81 @@
         <!-- 1. Ana Sayfa (Harita + Rota Planlayıcı) -->
         <div id="view-home" class="view-pane active">
             <div id="map"></div>
-            <div class="alert-banner" id="alertBanner">
-                <i class="fa-solid fa-triangle-exclamation fa-2x"></i>
-                <div>
-                    <strong>DİKKAT! Yükseklik Sınırı!</strong><br><small>Güzergahta düşük köprü var, rota güncelleniyor.</small>
-                </div>
-            </div>
-            <div class="top-card">
+            
+            <div class="top-card" id="searchCard">
                 <div class="input-group">
                     <i class="fa-solid fa-location-dot"></i>
                     <input type="text" id="startLoc" value="Mevcut Konum (GPS Alınıyor...)" readonly>
                 </div>
                 <div class="input-group">
                     <i class="fa-solid fa-flag-checkered"></i>
-                    <input type="text" id="destLoc" placeholder="Varış noktası (Adres veya şehir)">
+                    <input type="text" id="destLoc" placeholder="Varış noktası (Örn: Kadıköy, Ankara...)">
                 </div>
-                <button class="btn-primary" onclick="createRoute()"><i class="fa-solid fa-route"></i> Rota Oluştur</button>
+                <button class="btn-primary" onclick="searchAndRoute()"><i class="fa-solid fa-route"></i> Rota ve Yol Tarifi Hesapla</button>
+            </div>
+
+            <!-- Canlı Navigasyon / Yol Tarifi Üst Paneli -->
+            <div class="navigation-instructions" id="navInstructionPanel">
+                <div class="instruction-step">
+                    <i class="fa-solid fa-arrow-turn-up" id="dirIcon" style="color:#3a86ff;"></i> 
+                    <span id="instructionText">Rota hesaplanıyor...</span>
+                </div>
+                <div class="instruction-sub" id="instructionSubText">Mesafe ve süre bilgisi yükleniyor</div>
+                <button class="btn-primary btn-success" style="margin-top:10px; padding:8px;" onclick="stopNavigation()"><i class="fa-solid fa-stop"></i> Rotayı Bitir</button>
             </div>
         </div>
 
-        <!-- 2. Harita / Canlı Navigasyon Görünümü -->
-        <div id="view-map" class="view-pane">
-            <div style="width:100%; height:100%; position:relative;">
-                <div id="map2" style="width:100%; height:100%;"></div>
-                
-                <!-- Üst Bilgi Kartı -->
-                <div style="position:absolute; top:15px; left:15px; right:15px; background:rgba(28,37,65,0.95); padding:15px; border-radius:12px; border:1px solid #3a506b; z-index:1000;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <div id="navDistance" style="font-size:22px; font-weight:800; color:#3a86ff;">0 km</div>
-                            <div style="font-size:12px; color:#8d99ae;">Canlı GPS Takibi Aktif</div>
-                        </div>
-                        <div style="text-align:right;">
-                            <div style="font-size:18px; font-weight:700; color:#4ade80;">Canlı Yol Tarifi</div>
-                            <div style="font-size:12px; color:#8d99ae;">Tır Uygun Güzergah</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Yolculuğa Başla / Bitir Butonu -->
-                <div style="position:absolute; bottom:20px; left:15px; right:15px; z-index:1000;">
-                    <button id="navActionBtn" class="btn-primary btn-success" onclick="toggleNavigation()"><i class="fa-solid fa-play"></i> Yolculuğa Başla</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 3. Tır Parkları & Hizmet Noktaları -->
+        <!-- 2. Harita / Tesisler -->
         <div id="view-parks" class="view-pane">
             <div class="content-panel">
                 <div class="panel-title"><i class="fa-solid fa-square-parking" style="color:#3a86ff;"></i> Tır Parkları ve Tesisler</div>
                 <div class="card-box">
-                    <div style="font-weight:700; font-size:16px; margin-bottom:5px;">Tır Parkı - Kocaeli</div>
-                    <div style="font-size:13px; color:#8d99ae; margin-bottom:10px;">12 km • 24 saat açık • Güvenlikli</div>
-                    <button class="btn-primary" style="padding:8px;" onclick="alert('Park noktasına rota oluşturuldu!')">Rotaya Ekle</button>
-                </div>
-                <div class="card-box">
-                    <div style="font-weight:700; font-size:16px; margin-bottom:5px;">Anadolu Otoyolu Tesisleri</div>
-                    <div style="font-size:13px; color:#8d99ae; margin-bottom:10px;">45 km • Akaryakıt, Duş, Restoran</div>
-                    <button class="btn-primary" style="padding:8px;" onclick="alert('Park noktasına rota oluşturuldu!')">Rotaya Ekle</button>
+                    <div style="font-weight:700; font-size:16px; margin-bottom:5px;">Anadolu Otoyolu Tır Parkı</div>
+                    <div style="font-size:13px; color:#8d99ae; margin-bottom:10px;">24 saat açık • Güvenlikli • Duş ve Market</div>
+                    <button class="btn-primary" style="padding:8px;" onclick="alert('Tesis konumu seçildi!')">Seç</button>
                 </div>
             </div>
         </div>
 
-        <!-- 4. Yakıt & Tır Araç Profili -->
+        <!-- 3. Tır Araç Profili -->
         <div id="view-fuel" class="view-pane">
             <div class="content-panel">
                 <div class="panel-title"><i class="fa-solid fa-truck" style="color:#3a86ff;"></i> Araç Profili & Ölçüleri</div>
                 <div class="card-box">
                     <label>Araç Türü</label>
                     <select class="form-control">
-                        <option>Çekici + Dorse (Tır)</option>
+                        <option>Çekici + Dorse (Tır - 40 Ton)</option>
                         <option>Kamyon (10 Teker)</option>
-                        <option>Kırkayak Kamyon</option>
                     </select>
-                    <label>Uzunluk (m)</label>
-                    <input type="text" class="form-control" value="16.50 m">
-                    <label>Genişlik (m)</label>
-                    <input type="text" class="form-control" value="2.55 m">
-                    <label>Yükseklik (m)</label>
+                    <label>Maksimum Yükseklik (m)</label>
                     <input type="text" class="form-control" value="4.00 m">
-                    <label>Ağırlık (Ton)</label>
+                    <label>Maksimum Ağırlık (Ton)</label>
                     <input type="text" class="form-control" value="40.0 Ton">
-                    <button class="btn-primary" onclick="alert('Araç profili başarıyla kaydedildi! Rotalar bu ölçülere göre filtrelenecek.')">Kaydet ve Güncelle</button>
+                    <button class="btn-primary" onclick="alert('Araç profili kaydedildi!')">Kaydet</button>
                 </div>
             </div>
         </div>
 
-        <!-- 5. Ayarlar -->
+        <!-- 4. Ayarlar -->
         <div id="view-settings" class="view-pane">
             <div class="content-panel">
                 <div class="panel-title"><i class="fa-solid fa-gear" style="color:#3a86ff;"></i> Ayarlar</div>
                 <div class="card-box">
                     <div class="setting-row">
-                        <span>Navigasyon Sesli Uyarıları</span>
+                        <span>Sesli Navigasyon Uyarıları</span>
                         <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
                     </div>
                     <div class="setting-row">
-                        <span>Gece Modu (Koyu Tema)</span>
+                        <span>Köprü / Tonaj Uyarıları</span>
                         <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
                     </div>
-                    <div class="setting-row">
-                        <span>Tır Yasağı Uyarı Bildirimleri</span>
-                        <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
-                    </div>
-                </div>
-                <div class="card-box">
-                    <div style="font-weight:700; margin-bottom:5px;">TIRNAV v1.0.0</div>
-                    <div style="font-size:12px; color:#8d99ae;">Tır sürücüleri için yasaklı köprü ve tonaj uyumlu özel navigasyon sistemi.</div>
                 </div>
             </div>
         </div>
 
         <!-- Alt Menü Barı -->
         <div class="bottom-nav">
-            <a class="nav-item active" onclick="switchTab('home', this)"><i class="fa-solid fa-house"></i>Ana Sayfa</a>
-            <a class="nav-item" onclick="switchTab('map', this)"><i class="fa-solid fa-map-location-dot"></i>Harita</a>
+            <a class="nav-item active" onclick="switchTab('home', this)"><i class="fa-solid fa-house"></i>Navigasyon</a>
             <a class="nav-item" onclick="switchTab('parks', this)"><i class="fa-solid fa-square-parking"></i>Parklar</a>
             <a class="nav-item" onclick="switchTab('fuel', this)"><i class="fa-solid fa-truck"></i>Profil</a>
             <a class="nav-item" onclick="switchTab('settings', this)"><i class="fa-solid fa-gear"></i>Ayarlar</a>
@@ -232,14 +193,13 @@
             setTimeout(() => splash.style.display = 'none', 500);
         }, 1500);
 
-        // Değişkenler
-        let map, map2;
-        let userMarker1, userMarker2;
-        let routeLine1, routeLine2;
-        let watchId = null;
-        let isNavigating = false;
+        let map;
+        let userMarker;
+        let routeLayer = null;
+        let destMarker = null;
         let currentLat = 40.9778;
         let currentLng = 29.2672;
+        let isNavActive = false;
 
         // Tır İkonu
         let truckIcon = L.divIcon({
@@ -249,46 +209,28 @@
             iconAnchor: [18, 18]
         });
 
-        // 1. Ana Harita Başlatma
-        map = L.map('map').setView([currentLat, currentLng], 14);
+        // Haritayı Başlat
+        map = L.map('map', {zoomControl: false}).setView([currentLat, currentLng], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '© OpenStreetMap contributors'
+            attribution: '© OpenStreetMap'
         }).addTo(map);
 
-        userMarker1 = L.marker([currentLat, currentLng], {icon: truckIcon}).addTo(map).bindPopup("<b>Mevcut Konumunuz</b>");
+        userMarker = L.marker([currentLat, currentLng], {icon: truckIcon}).addTo(map).bindPopup("<b>Mevcut Konumunuz</b>");
 
-        // 2. Navigasyon Haritası Başlatma
-        map2 = L.map('map2').setView([currentLat, currentLng], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map2);
-        userMarker2 = L.marker([currentLat, currentLng], {icon: truckIcon}).addTo(map2);
-
-        // Canlı GPS Konum Takibini Başlat
+        // Canlı GPS Takibi
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition(function(position) {
                 currentLat = position.coords.latitude;
                 currentLng = position.coords.longitude;
-
-                // Konum girdisini güncelle
-                document.getElementById('startLoc').value = "Konum Alındı (" + currentLat.toFixed(4) + ", " + currentLng.toFixed(4) + ")";
-
-                // İşaretçileri hareket ettir
-                userMarker1.setLatLng([currentLat, currentLng]);
-                userMarker2.setLatLng([currentLat, currentLng]);
-
-                if (!isNavigating) {
+                document.getElementById('startLoc').value = "Konum Aktif (" + currentLat.toFixed(4) + ", " + currentLng.toFixed(4) + ")";
+                userMarker.setLatLng([currentLat, currentLng]);
+                if (!isNavActive) {
                     map.setView([currentLat, currentLng], 15);
-                } else {
-                    map2.setView([currentLat, currentLng], 17); // Canlı takip modunda haritayı tırla birlikte kaydır
                 }
             }, function(error) {
-                console.log("GPS Hatası: " + error.message);
-                document.getElementById('startLoc').value = "Konum alınamadı, GPS'i açın";
-            }, {
-                enableHighAccuracy: true,
-                maximumAge: 0,
-                timeout: 5000
-            });
+                document.getElementById('startLoc').value = "GPS Alınamadı, Konum Servisini Açın";
+            }, { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
         }
 
         function switchTab(tabId, element) {
@@ -296,58 +238,75 @@
             document.getElementById('view-' + tabId).classList.add('active');
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             element.classList.add('active');
-            if(tabId === 'map') {
-                setTimeout(() => { map2.invalidateSize(); }, 200);
-            }
+            setTimeout(() => { map.invalidateSize(); }, 200);
         }
 
-        function createRoute() {
-            const dest = document.getElementById('destLoc').value;
-            if(!dest) {
-                alert('Lütfen geçerli bir varış noktası giriniz!');
+        // Nominatim ile Adres Arama ve OSRM ile Gerçek Yol Tarifi Çizme
+        async function searchAndRoute() {
+            const query = document.getElementById('destLoc').value;
+            if(!query) {
+                alert('Lütfen bir varış noktası yazın!');
                 return;
             }
 
-            // Örnek Rota Çizgisi (Mevcut konumdan rastgele bir rotaya)
-            const targetLat = currentLat + 0.05;
-            const targetLng = currentLng + 0.05;
-            const latlngs = [
-                [currentLat, currentLng],
-                [currentLat + 0.02, currentLng + 0.01],
-                [targetLat, targetLng]
-            ];
+            // 1. Adresi Koordinata Çevir (Geocoding)
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                if(!data || data.length === 0) {
+                    alert('Aradığınız konum bulunamadı. Lütfen daha detaylı yazın (Örn: Kadıköy İstanbul)');
+                    return;
+                }
 
-            if(routeLine1) map.removeLayer(routeLine1);
-            if(routeLine2) map2.removeLayer(routeLine2);
+                const destLat = parseFloat(data[0].lat);
+                const destLng = parseFloat(data[0].lon);
 
-            routeLine1 = L.polyline(latlngs, {color: '#3a86ff', weight: 6}).addTo(map);
-            routeLine2 = L.polyline(latlngs, {color: '#3a86ff', weight: 6}).addTo(map2);
+                if(destMarker) map.removeLayer(destMarker);
+                destMarker = L.marker([destLat, destLng]).addTo(map).bindPopup("<b>Varış: </b>" + data[0].display_name);
 
-            map.fitBounds(routeLine1.getBounds());
+                // 2. OSRM API ile Gerçek Karayolu Rotası ve Yol Tarifi Çek
+                const routeUrl = `https://router.project-osrm.org/route/v1/driving/${currentLng},${currentLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`;
+                const routeRes = await fetch(routeUrl);
+                const routeData = await routeRes.json();
 
-            // Uyarı simülasyonu göster ve harita sekmesine geç
-            const alertBanner = document.getElementById('alertBanner');
-            alertBanner.style.display = 'flex';
-            setTimeout(() => {
-                alertBanner.style.display = 'none';
-                switchTab('map', document.querySelectorAll('.nav-item')[1]);
-            }, 2500);
+                if(routeData.code !== "Ok") {
+                    alert('Bu konuma karayolu rotası hesaplanamadı.');
+                    return;
+                }
+
+                const coords = routeData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                const distanceKm = (routeData.routes[0].distance / 1000).toFixed(1);
+                const durationMin = Math.round(routeData.routes[0].duration / 60);
+
+                if(routeLayer) map.removeLayer(routeLayer);
+                routeLayer = L.polyline(coords, {color: '#3a86ff', weight: 6, opacity: 0.8}).addTo(map);
+                map.fitBounds(routeLayer.getBounds(), {padding: [50, 50]});
+
+                // Yol tarifini ekrana yansıt
+                const firstStep = routeData.routes[0].legs[0].steps[0];
+                const instruction = firstStep ? firstStep.maneuver.instruction || "Ana güzergahı takip edin" : "Rotaya doğru hareket edin";
+
+                document.getElementById('searchCard').style.display = 'none';
+                document.getElementById('navInstructionPanel').style.display = 'block';
+                document.getElementById('instructionText').innerText = instruction;
+                document.getElementById('instructionSubText').innerText = `Mesafe: ${distanceKm} km • Tahmini Süre: ${durationMin} dk`;
+                
+                isNavActive = true;
+
+            } catch (err) {
+                console.error(err);
+                alert('Bağlantı hatası oluştu. İnternet bağlantınızı kontrol edin.');
+            }
         }
 
-        // Canlı Yolculuğa Başla / Bitir Butonu Kontrolü
-        function toggleNavigation() {
-            isNavigating = !isNavigating;
-            const btn = document.getElementById('navActionBtn');
-
-            if (isNavigating) {
-                btn.innerHTML = '<i class="fa-solid fa-stop"></i> Yolculuğu Bitir';
-                btn.style.background = '#e63946';
-                alert("Canlı navigasyon başlatıldı! Yol tarifi yapılıyor.");
-            } else {
-                btn.innerHTML = '<i class="fa-solid fa-play"></i> Yolculuğa Başla';
-                btn.style.background = '#2ec4b6';
-                alert("Yolculuk sonlandırıldı.");
-            }
+        function stopNavigation() {
+            isNavActive = false;
+            document.getElementById('navInstructionPanel').style.display = 'none';
+            document.getElementById('searchCard').style.display = 'block';
+            if(routeLayer) map.removeLayer(routeLayer);
+            if(destMarker) map.removeLayer(destMarker);
+            map.setView([currentLat, currentLng], 15);
         }
     </script>
 </body>
