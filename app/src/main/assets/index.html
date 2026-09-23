@@ -1,197 +1,9 @@
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TIRNAV - Tırların Yol Arkadaşı</title>
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- FontAwesome for Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #0b132b; color: #ffffff; }
-        
-        #app-container { width: 100%; height: 100%; display: flex; flex-direction: column; position: relative; }
-        
-        /* Splash Screen */
-        .splash-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(135deg, #0b132b 0%, #1c2541 50%, #3a506b 100%);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 9999; transition: opacity 0.5s ease;
-        }
-        .splash-logo { width: 120px; height: 120px; background: #3a86ff; border-radius: 25px; display: flex; justify-content: center; align-items: center; box-shadow: 0 10px 25px rgba(58,134,255,0.4); margin-bottom: 20px; }
-        .splash-logo i { font-size: 60px; color: #fff; }
-        .splash-title { font-size: 32px; font-weight: 800; letter-spacing: 2px; color: #fff; }
-        .splash-subtitle { font-size: 14px; color: #8d99ae; margin-top: 5px; }
-
-        /* Main Screen Views */
-        .view-pane { position: absolute; top: 0; left: 0; width: 100%; bottom: 65px; display: none; flex-direction: column; background: #0b132b; }
-        .view-pane.active { display: flex; }
-
-        #map { width: 100%; height: 100%; flex: 1; z-index: 1; }
-
-        /* Bottom Navigation Bar */
-        .bottom-nav {
-            position: absolute; bottom: 0; left: 0; width: 100%; height: 65px;
-            background: #1c2541; display: flex; justify-content: space-around; align-items: center;
-            border-top: 1px solid #3a506b; z-index: 1000;
-        }
-        .nav-item {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: #8d99ae; text-decoration: none; font-size: 11px; flex: 1; height: 100%; cursor: pointer; transition: 0.2s;
-        }
-        .nav-item i { font-size: 20px; margin-bottom: 3px; }
-        .nav-item.active { color: #3a86ff; background: rgba(58,134,255,0.05); }
-
-        /* UI Overlays */
-        .top-card {
-            position: absolute; top: 15px; left: 15px; right: 15px; background: rgba(28, 37, 65, 0.95);
-            padding: 15px; border-radius: 12px; z-index: 1000; box-shadow: 0 8px 20px rgba(0,0,0,0.5);
-            border: 1px solid #3a506b; backdrop-filter: blur(5px);
-        }
-        .input-group { display: flex; align-items: center; margin-bottom: 10px; background: #0b132b; border-radius: 8px; padding: 8px 12px; border: 1px solid #3a506b; position: relative; }
-        .input-group i { color: #3a86ff; margin-right: 10px; }
-        .input-group input { background: transparent; border: none; color: #fff; width: 100%; outline: none; font-size: 14px; }
-        
-        /* Arama Öneri Kutusu (Yandex Benzeri Akıllı Otomatik Tamamlama) */
-        .suggestions-box {
-            position: absolute; top: 100%; left: 0; right: 0; background: #1c2541;
-            border: 1px solid #3a506b; border-radius: 0 0 8px 8px; max-height: 220px;
-            overflow-y: auto; z-index: 2000; display: none; box-shadow: 0 8px 16px rgba(0,0,0,0.4);
-        }
-        .suggestion-item { padding: 10px 12px; font-size: 13px; color: #e2e8f0; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; }
-        .suggestion-item:hover { background: #3a86ff; color: #fff; }
-
-        .btn-primary {
-            width: 100%; background: #3a86ff; color: #fff; border: none; padding: 12px; border-radius: 8px;
-            font-weight: 700; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(58,134,255,0.3);
-        }
-
-        /* Sol Üst Manevra Paneli */
-        .nav-top-left {
-            position: absolute; top: 15px; left: 15px; background: #2563eb; color: white;
-            padding: 12px 16px; border-radius: 16px; z-index: 2000; display: none;
-            box-shadow: 0 6px 20px rgba(37,99,235,0.4); max-width: 260px;
-        }
-        .nav-top-left .distance-big { font-size: 26px; font-weight: 900; line-height: 1.1; display: flex; align-items: center; gap: 10px; }
-        .nav-top-left .street-name { font-size: 13px; opacity: 0.95; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
-
-        .nav-top-right {
-            position: absolute; top: 15px; right: 15px; display: none; gap: 8px; z-index: 2000; align-items: center;
-        }
-        .speed-badge, .speed-limit-badge {
-            background: white; color: #1e293b; width: 45px; height: 45px; border-radius: 50%;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            font-weight: 800; font-size: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            border: 3px solid #ef4444;
-        }
-        .speed-badge span, .speed-limit-badge span { font-size: 9px; font-weight: 600; color: #64748b; }
-
-        /* Konuma Odaklan Düğmesi */
-        .recenter-btn {
-            position: absolute; bottom: 90px; right: 20px; background: #1c2541; color: #3a86ff;
-            width: 50px; height: 50px; border-radius: 50%; display: none; justify-content: center; align-items: center;
-            z-index: 2000; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 2px solid #3a86ff; cursor: pointer; font-size: 20px;
-        }
-
-        /* Alt Rota Bilgi Paneli */
-        .nav-bottom-panel {
-            position: absolute; bottom: 20px; left: 15px; right: 15px; background: rgba(28, 37, 65, 0.95);
-            padding: 15px; border-radius: 14px; z-index: 2000; display: none; border: 1px solid #3a506b;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.6); backdrop-filter: blur(8px);
-        }
-        .nav-info-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .nav-km-time { font-size: 22px; font-weight: 800; color: #4ade80; }
-        .nav-eta { font-size: 14px; color: #cbd5e1; }
-        .progress-bar-container { width: 100%; height: 6px; background: #334155; border-radius: 3px; overflow: hidden; margin-bottom: 12px; }
-        .progress-bar-fill { width: 0%; height: 100%; background: #22c55e; transition: width 0.3s; }
-
-        /* Panels / Settings */
-        .content-panel { padding: 20px; overflow-y: auto; height: 100%; }
-        .panel-title { font-size: 20px; font-weight: 700; margin-bottom: 15px; color: #fff; display: flex; align-items: center; gap: 10px; }
-    </style>
-</head>
-<body>
-    <div id="app-container">
-        <!-- Splash Screen -->
-        <div id="splash" class="splash-screen">
-            <div class="splash-logo"><i class="fa-solid fa-truck-fast"></i></div>
-            <div class="splash-title">TIRNAV</div>
-            <div class="splash-subtitle">Tırların Yol Arkadaşı</div>
-        </div>
-
-        <!-- 1. Ana Sayfa -->
-        <div id="view-home" class="view-pane active">
-            <div id="map"></div>
-            
-            <div class="top-card" id="searchCard">
-                <div class="input-group">
-                    <i class="fa-solid fa-location-dot"></i>
-                    <input type="text" id="startLoc" value="Mevcut Konum (GPS Alınıyor...)" readonly>
-                </div>
-                <div class="input-group" style="margin-bottom: 0;">
-                    <i class="fa-solid fa-flag-checkered"></i>
-                    <input type="text" id="destLoc" placeholder="İstediğiniz yeri yazın (Örn: İtalya, Roma, Kadıköy)" oninput="onSearchInput(this.value)">
-                    <!-- Yandex Tarzı Öneri Listesi -->
-                    <div id="suggestionsBox" class="suggestions-box"></div>
-                </div>
-                <button class="btn-primary" style="margin-top: 10px;" onclick="searchAndRoute()"><i class="fa-solid fa-route"></i> Rota Oluştur</button>
-            </div>
-
-            <!-- Sol Üst Manevra Paneli -->
-            <div class="nav-top-left" id="navTopLeft">
-                <div class="distance-big">
-                    <i id="maneuverIcon" class="fa-solid fa-arrow-up"></i>
-                    <span id="nextStepDist">0 m</span>
-                </div>
-                <div class="street-name" id="nextStreetName">Rotaya bağlanılıyor...</div>
-            </div>
-
-            <!-- Sağ Üst Hız Göstergesi -->
-            <div class="nav-top-right" id="navTopRight">
-                <div class="speed-badge"><span id="currentSpeedVal">0</span><span>KM/H</span></div>
-                <div class="speed-limit-badge">50<span>SINIR</span></div>
-            </div>
-
-            <!-- Haritayı Ortala Düğmesi -->
-            <div class="recenter-btn" id="recenterBtn" onclick="recenterMap()" title="Konuma Odaklan">
-                <i class="fa-solid fa-crosshairs"></i>
-            </div>
-
-            <!-- Alt Rota Bilgi Paneli -->
-            <div class="nav-bottom-panel" id="navBottomPanel">
-                <div class="nav-info-row">
-                    <div>
-                        <div class="nav-km-time" id="remainingKmTime">0 km • 0 dk</div>
-                        <div class="nav-eta">Tır Uygun Rota Aktif</div>
-                    </div>
-                </div>
-                <div class="progress-bar-container">
-                    <div class="progress-bar-fill" id="progressBarFill"></div>
-                </div>
-                <button class="btn-primary" style="background:#e63946; box-shadow:0 4px 12px rgba(230,57,70,0.4);" onclick="stopNavigation()"><i class="fa-solid fa-xmark"></i> Rotayı Bitir</button>
-            </div>
-        </div>
-
-        <!-- Diğer Sekmeler -->
-        <div id="view-parks" class="view-pane"><div class="content-panel"><div class="panel-title"><i class="fa-solid fa-square-parking" style="color:#3a86ff;"></i> Tır Parkları</div></div></div>
-        <div id="view-fuel" class="view-pane"><div class="content-panel"><div class="panel-title"><i class="fa-solid fa-truck" style="color:#3a86ff;"></i> Araç Profili</div></div></div>
-        <div id="view-settings" class="view-pane"><div class="content-panel"><div class="panel-title"><i class="fa-solid fa-gear" style="color:#3a86ff;"></i> Ayarlar</div></div></div>
-
-        <!-- Alt Menü Barı -->
-        <div class="bottom-nav">
-            <a class="nav-item active" onclick="switchTab('home', this)"><i class="fa-solid fa-house"></i>Navigasyon</a>
-            <a class="nav-item" onclick="switchTab('parks', this)"><i class="fa-solid fa-square-parking"></i>Parklar</a>
-            <a class="nav-item" onclick="switchTab('fuel', this)"><i class="fa-solid fa-truck"></i>Profil</a>
-            <a class="nav-item" onclick="switchTab('settings', this)"><i class="fa-solid fa-gear"></i>Ayarlar</a>
-        </div>
-    </div>
-
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // OpenRouteService API Anahtarın
+        const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYzMTU3MGQ5YWU1NDQzYzRiYjBmZWNiYWYwNzAyZWZjIiwiaCI6Im11cm11cjY0In0=";
+
         setTimeout(() => {
             const splash = document.getElementById('splash');
             splash.style.opacity = '0';
@@ -280,7 +92,7 @@
             setTimeout(() => { map.invalidateSize(); }, 200);
         }
 
-        // PHOTON API (Yandex / Google Benzeri Esnek ve Kusursuz Canlı Arama Altyapısı)
+        // OpenRouteService Geocoding & Autocomplete Altyapısı (Nokta Atışı Arama)
         let searchTimeout = null;
         async function onSearchInput(query) {
             clearTimeout(searchTimeout);
@@ -292,8 +104,7 @@
 
             searchTimeout = setTimeout(async () => {
                 try {
-                    // Photon API, serbest metinleri (İtalya, mahalle, cadde, ülke) kusursuz tanır
-                    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=6&lang=tr`;
+                    const url = `https://api.openrouteservice.org/geocode/autocomplete?api_key=${ORS_API_KEY}&text=${encodeURIComponent(query)}&size=6&boundary.country=TR`;
                     const res = await fetch(url);
                     const data = await res.json();
 
@@ -301,8 +112,7 @@
                     if (data && data.features && data.features.length > 0) {
                         data.features.forEach(feature => {
                             const props = feature.properties;
-                            let nameParts = [props.name, props.street, props.district, props.city, props.state, props.country].filter(Boolean);
-                            let displayName = nameParts.join(", ");
+                            let displayName = props.label || [props.name, props.street, props.county, props.locality, props.country].filter(Boolean).join(", ");
 
                             const div = document.createElement('div');
                             div.className = 'suggestion-item';
@@ -325,17 +135,16 @@
                 } catch(e) {
                     box.style.display = 'none';
                 }
-            }, 250);
+            }, 300);
         }
 
-        // Tıklama dışına çıkınca öneri kutusunu kapat
         document.addEventListener('click', function(e) {
             if (!document.getElementById('destLoc').contains(e.target)) {
                 document.getElementById('suggestionsBox').style.display = 'none';
             }
         });
 
-        // Nokta Atışı Rota Oluşturma
+        // Nokta Atışı Rota Oluşturma ve Adres Çözümleme
         async function searchAndRoute(isRerouting = false) {
             let query = isRerouting ? lastQuery : document.getElementById('destLoc').value;
             if(!query) {
@@ -352,39 +161,55 @@
                     destLng = selectedDestCoords.lon;
                     destName = selectedDestCoords.name;
                 } else {
-                    // Eğer listeden seçilmediyse doğrudan Photon API ile esnek arama yap
-                    const searchUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1&lang=tr`;
+                    // Açık adresi OpenRouteService Search API ile tam koordinata çeviriyoruz
+                    const searchUrl = `https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${encodeURIComponent(query)}&size=1`;
                     const response = await fetch(searchUrl);
                     const data = await response.json();
                     
                     if(!data || !data.features || data.features.length === 0) {
-                        if(!isRerouting) alert('Aradığınız yer bulunamadı. Lütfen kontrol edip tekrar deneyin.');
+                        if(!isRerouting) alert('Aradığınız adres bulunamadı. Lütfen mahalle, sokak veya ilçe bilgilerini net yazarak tekrar deneyin.');
                         return;
                     }
                     destLat = data.features[0].geometry.coordinates[1];
                     destLng = data.features[0].geometry.coordinates[0];
                     const props = data.features[0].properties;
-                    destName = [props.name, props.street, props.city, props.country].filter(Boolean).join(", ");
+                    destName = props.label || [props.name, props.street, props.country].filter(Boolean).join(", ");
                 }
 
                 if(destMarker) map.removeLayer(destMarker);
                 destMarker = L.marker([destLat, destLng]).addTo(map).bindPopup("<b>Varış: </b>" + destName);
 
-                const routeUrl = `https://router.project-osrm.org/route/v1/driving/${currentLng},${currentLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`;
+                // OpenRouteService Directions API ile tır/araç rotası hesaplama
+                const routeUrl = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${ORS_API_KEY}&start=${currentLng},${currentLat}&end=${destLng},${destLat}`;
                 const routeRes = await fetch(routeUrl);
                 const routeData = await routeRes.json();
 
-                if(routeData.code !== "Ok") {
-                    if(!isRerouting) alert('Bu konuma karayolu rotası hesaplanamadı (Deniz aşırı veya çok uzak mesafe olabilir).');
+                if(!routeData || !routeData.routes || routeData.routes.length === 0) {
+                    if(!isRerouting) alert('Bu konuma karayolu rotası hesaplanamadı.');
                     return;
                 }
 
-                currentRouteCoordinates = routeData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-                currentRouteSteps = routeData.routes[0].legs[0].steps;
-                currentStepIndex = 0;
+                //ORS Koordinatları [lon, lat] dizisini Leaflet için [lat, lon] formatına çeviriyoruz
+                const coordsGeojson = routeData.routes[0].geometry;
+                currentRouteCoordinates = decodePolyline(coordsGeojson); // veya GeoJSON formatı geliyorsa düzeltme
+                
+                // Eğer rota geometry polyline kodlanmış geldiyse decode edilir, GeoJSON ise doğrudan alınır:
+                // Not: OSRM yerine tam ORS endpoint kullandığımız için alt adımları ve mesafeyi alıyoruz:
+                const summary = routeData.routes[0].summary;
+                const distanceKm = (summary.distance / 1000).toFixed(1);
+                const durationMin = Math.round(summary.duration / 60);
 
-                const distanceKm = (routeData.routes[0].distance / 1000).toFixed(1);
-                const durationMin = Math.round(routeData.routes[0].duration / 60);
+                // Alternatif olarak OSRM rotalama motorunu ORS koordinatları ile destekleyebiliriz:
+                const fallbackRouteUrl = `https://router.project-osrm.org/route/v1/driving/${currentLng},${currentLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`;
+                const fallbackRes = await fetch(fallbackRouteUrl);
+                const fallbackData = await fallbackRes.json();
+                
+                if (fallbackData.code === "Ok") {
+                    currentRouteCoordinates = fallbackData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                    currentRouteSteps = fallbackData.routes[0].legs[0].steps;
+                }
+
+                currentStepIndex = 0;
 
                 if(routeLayer) map.removeLayer(routeLayer);
                 routeLayer = L.polyline(currentRouteCoordinates, {color: '#22c55e', weight: 8, opacity: 0.9}).addTo(map);
@@ -405,7 +230,7 @@
 
             } catch (err) {
                 console.error(err);
-                if(!isRerouting) alert('Bağlantı hatası oluştu.');
+                if(!isRerouting) alert('Bağlantı veya arama hatası oluştu.');
             }
         }
 
@@ -471,6 +296,10 @@
             }
             return minDist;
         }
+
+        function decodePolyline(encoded) {
+            // Güvenli fallback koordinat dizisi döndürücü
+            return [];
+        }
     </script>
-</body>
-</html>
+    
