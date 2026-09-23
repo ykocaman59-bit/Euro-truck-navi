@@ -51,9 +51,19 @@
             padding: 15px; border-radius: 12px; z-index: 1000; box-shadow: 0 8px 20px rgba(0,0,0,0.5);
             border: 1px solid #3a506b; backdrop-filter: blur(5px);
         }
-        .input-group { display: flex; align-items: center; margin-bottom: 10px; background: #0b132b; border-radius: 8px; padding: 8px 12px; border: 1px solid #3a506b; }
+        .input-group { display: flex; align-items: center; margin-bottom: 10px; background: #0b132b; border-radius: 8px; padding: 8px 12px; border: 1px solid #3a506b; position: relative; }
         .input-group i { color: #3a86ff; margin-right: 10px; }
         .input-group input { background: transparent; border: none; color: #fff; width: 100%; outline: none; font-size: 14px; }
+        
+        /* Arama Öneri Kutusu (Yandex Benzeri Akıllı Otomatik Tamamlama) */
+        .suggestions-box {
+            position: absolute; top: 100%; left: 0; right: 0; background: #1c2541;
+            border: 1px solid #3a506b; border-radius: 0 0 8px 8px; max-height: 220px;
+            overflow-y: auto; z-index: 2000; display: none; box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+        }
+        .suggestion-item { padding: 10px 12px; font-size: 13px; color: #e2e8f0; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; }
+        .suggestion-item:hover { background: #3a86ff; color: #fff; }
+
         .btn-primary {
             width: 100%; background: #3a86ff; color: #fff; border: none; padding: 12px; border-radius: 8px;
             font-weight: 700; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(58,134,255,0.3);
@@ -101,10 +111,6 @@
         /* Panels / Settings */
         .content-panel { padding: 20px; overflow-y: auto; height: 100%; }
         .panel-title { font-size: 20px; font-weight: 700; margin-bottom: 15px; color: #fff; display: flex; align-items: center; gap: 10px; }
-        .card-box { background: #1c2541; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #3a506b; }
-        .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .form-control { width: 100%; background: #0b132b; border: 1px solid #3a506b; color: #fff; padding: 10px; border-radius: 8px; margin-top: 5px; margin-bottom: 15px; }
-        label { font-size: 13px; color: #8d99ae; }
     </style>
 </head>
 <body>
@@ -125,11 +131,13 @@
                     <i class="fa-solid fa-location-dot"></i>
                     <input type="text" id="startLoc" value="Mevcut Konum (GPS Alınıyor...)" readonly>
                 </div>
-                <div class="input-group">
+                <div class="input-group" style="margin-bottom: 0;">
                     <i class="fa-solid fa-flag-checkered"></i>
-                    <input type="text" id="destLoc" placeholder="Adres veya sokak yazın (Örn: Eren Sokağı)">
+                    <input type="text" id="destLoc" placeholder="İstediğiniz yeri yazın (Örn: İtalya, Roma, Kadıköy)" oninput="onSearchInput(this.value)">
+                    <!-- Yandex Tarzı Öneri Listesi -->
+                    <div id="suggestionsBox" class="suggestions-box"></div>
                 </div>
-                <button class="btn-primary" onclick="searchAndRoute()"><i class="fa-solid fa-route"></i> Rota Oluştur</button>
+                <button class="btn-primary" style="margin-top: 10px;" onclick="searchAndRoute()"><i class="fa-solid fa-route"></i> Rota Oluştur</button>
             </div>
 
             <!-- Sol Üst Manevra Paneli -->
@@ -199,6 +207,7 @@
         let isNavActive = false;
         let currentRouteCoordinates = [];
         let currentRouteSteps = [];
+        let selectedDestCoords = null;
         let lastQuery = "";
         let currentStepIndex = 0;
         let userInteractedWithMap = false;
@@ -271,56 +280,102 @@
             setTimeout(() => { map.invalidateSize(); }, 200);
         }
 
-        // Konum Öncelikli Yerel ve Detaylı Adres Arama
+        // PHOTON API (Yandex / Google Benzeri Esnek ve Kusursuz Canlı Arama Altyapısı)
+        let searchTimeout = null;
+        async function onSearchInput(query) {
+            clearTimeout(searchTimeout);
+            const box = document.getElementById('suggestionsBox');
+            if (!query || query.length < 2) {
+                box.style.display = 'none';
+                return;
+            }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    // Photon API, serbest metinleri (İtalya, mahalle, cadde, ülke) kusursuz tanır
+                    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=6&lang=tr`;
+                    const res = await fetch(url);
+                    const data = await res.json();
+
+                    box.innerHTML = '';
+                    if (data && data.features && data.features.length > 0) {
+                        data.features.forEach(feature => {
+                            const props = feature.properties;
+                            let nameParts = [props.name, props.street, props.district, props.city, props.state, props.country].filter(Boolean);
+                            let displayName = nameParts.join(", ");
+
+                            const div = document.createElement('div');
+                            div.className = 'suggestion-item';
+                            div.innerText = displayName;
+                            div.onclick = () => {
+                                document.getElementById('destLoc').value = displayName;
+                                selectedDestCoords = { 
+                                    lon: feature.geometry.coordinates[0], 
+                                    lat: feature.geometry.coordinates[1], 
+                                    name: displayName 
+                                };
+                                box.style.display = 'none';
+                            };
+                            box.appendChild(div);
+                        });
+                        box.style.display = 'block';
+                    } else {
+                        box.style.display = 'none';
+                    }
+                } catch(e) {
+                    box.style.display = 'none';
+                }
+            }, 250);
+        }
+
+        // Tıklama dışına çıkınca öneri kutusunu kapat
+        document.addEventListener('click', function(e) {
+            if (!document.getElementById('destLoc').contains(e.target)) {
+                document.getElementById('suggestionsBox').style.display = 'none';
+            }
+        });
+
+        // Nokta Atışı Rota Oluşturma
         async function searchAndRoute(isRerouting = false) {
-            let rawQuery = isRerouting ? lastQuery : document.getElementById('destLoc').value;
-            if(!rawQuery) {
+            let query = isRerouting ? lastQuery : document.getElementById('destLoc').value;
+            if(!query) {
                 if(!isRerouting) alert('Lütfen bir varış noktası yazın!');
                 return;
             }
-            lastQuery = rawQuery;
-
-            // Eğer arama içinde il/ilçe geçmiyorsa, doğru sonuç için "İstanbul Sultanbeyli" ekleyerek aratıyoruz
-            let query = rawQuery;
-            if (!query.toLowerCase().includes('sultanbeyli') && !query.toLowerCase().includes('istanbul')) {
-                query = query + " Sultanbeyli İstanbul";
-            }
+            lastQuery = query;
 
             try {
-                // Konuma en yakın ve en mantıklı sonuçları almak için viewbox veya lat/lon parametreleri ekliyoruz
-                const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&lat=${currentLat}&lon=${currentLng}&q=${encodeURIComponent(query)}`;
-                const response = await fetch(searchUrl);
-                const data = await response.json();
-                
-                if(!data || data.length === 0) {
-                    if(!isRerouting) alert('Aradığınız adres bulunamadı. Lütfen mahalle veya cadde adını net yazın.');
-                    return;
+                let destLat, destLng, destName;
+
+                if (selectedDestCoords && !isRerouting) {
+                    destLat = selectedDestCoords.lat;
+                    destLng = selectedDestCoords.lon;
+                    destName = selectedDestCoords.name;
+                } else {
+                    // Eğer listeden seçilmediyse doğrudan Photon API ile esnek arama yap
+                    const searchUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1&lang=tr`;
+                    const response = await fetch(searchUrl);
+                    const data = await response.json();
+                    
+                    if(!data || !data.features || data.features.length === 0) {
+                        if(!isRerouting) alert('Aradığınız yer bulunamadı. Lütfen kontrol edip tekrar deneyin.');
+                        return;
+                    }
+                    destLat = data.features[0].geometry.coordinates[1];
+                    destLng = data.features[0].geometry.coordinates[0];
+                    const props = data.features[0].properties;
+                    destName = [props.name, props.street, props.city, props.country].filter(Boolean).join(", ");
                 }
 
-                // Birden fazla sonuç varsa, kullanıcının GPS konumuna **en yakın** olan sonucu seçiyoruz (Böylece 49 km uzaktakini değil, yakındakini bulur)
-                let bestMatch = data[0];
-                let minDistance = 999999;
-
-                data.forEach(item => {
-                    let d = Math.hypot(parseFloat(item.lat) - currentLat, parseFloat(item.lon) - currentLng);
-                    if (d < minDistance) {
-                        minDistance = d;
-                        bestMatch = item;
-                    }
-                });
-
-                const destLat = parseFloat(bestMatch.lat);
-                const destLng = parseFloat(bestMatch.lon);
-
                 if(destMarker) map.removeLayer(destMarker);
-                destMarker = L.marker([destLat, destLng]).addTo(map).bindPopup("<b>Varış: </b>" + bestMatch.display_name);
+                destMarker = L.marker([destLat, destLng]).addTo(map).bindPopup("<b>Varış: </b>" + destName);
 
                 const routeUrl = `https://router.project-osrm.org/route/v1/driving/${currentLng},${currentLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`;
                 const routeRes = await fetch(routeUrl);
                 const routeData = await routeRes.json();
 
                 if(routeData.code !== "Ok") {
-                    if(!isRerouting) alert('Bu konuma karayolu rotası hesaplanamadı.');
+                    if(!isRerouting) alert('Bu konuma karayolu rotası hesaplanamadı (Deniz aşırı veya çok uzak mesafe olabilir).');
                     return;
                 }
 
