@@ -224,7 +224,7 @@
             attribution: '© OpenStreetMap'
         }).addTo(map);
 
-        userMarker = L.marker([currentLat, currentLng], {icon: yellowArrowIcon}).addTo(map);
+        userMarker = L.marker([currentLat, currentLng], {icon: yellowArrowImage = yellowArrowIcon}).addTo(map);
 
         map.on('dragstart zoomstart', function() {
             if (isNavActive) {
@@ -279,7 +279,7 @@
             setTimeout(() => { map.invalidateSize(); }, 200);
         }
 
-        // NOMINATIM API + Konum Öncelikli Güçlü Arama Altyapısı
+        // AKILLI SOKAK VE CADDE FİLTRELİ ARAMA ALTYAPISI
         let searchTimeout = null;
         async function onSearchInput(query) {
             clearTimeout(searchTimeout);
@@ -291,8 +291,8 @@
 
             searchTimeout = setTimeout(async () => {
                 try {
-                    // Kullanıcının etrafına öncelik veren Nominatim arama uç noktası
-                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&lat=${currentLat}&lon=${currentLng}&limit=6&addressdetails=1&countrycodes=tr`;
+                    // Kullanıcı etrafında arama yapıp sokak/caddeleri öne çıkaran parametreler
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&lat=${currentLat}&lon=${currentLng}&limit=8&addressdetails=1&countrycodes=tr`;
                     const res = await fetch(url, {
                         headers: { 'User-Agent': 'TirNavApp/1.0' }
                     });
@@ -300,6 +300,13 @@
 
                     box.innerHTML = '';
                     if (data && data.length > 0) {
+                        // Sokak ve caddeleri dükkan/işletmelerin (eczane vb.) önüne geçirecek akıllı sıralama
+                        data.sort((a, b) => {
+                            let aIsRoad = (a.type === 'residential' || a.type === 'road' || a.class === 'highway') ? -1 : 1;
+                            let bIsRoad = (b.type === 'residential' || b.type === 'road' || b.class === 'highway') ? -1 : 1;
+                            return aIsRoad - bIsRoad;
+                        });
+
                         data.forEach(item => {
                             const div = document.createElement('div');
                             div.className = 'suggestion-item';
@@ -331,7 +338,7 @@
             }
         });
 
-        // Konum Öncelikli Rota Oluşturma
+        // Rota Oluşturma
         async function searchAndRoute(isRerouting = false) {
             let query = isRerouting ? lastQuery : document.getElementById('destLoc').value;
             if(!query) {
