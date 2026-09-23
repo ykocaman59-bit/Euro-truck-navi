@@ -291,7 +291,6 @@
 
             searchTimeout = setTimeout(async () => {
                 try {
-                    // lat ve lon parametreleri eklenerek kullanıcının etrafındaki yerler öne getirildi
                     const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lat=${currentLat}&lon=${currentLng}&limit=6&lang=tr`;
                     const res = await fetch(url);
                     const data = await res.json();
@@ -444,7 +443,6 @@
             }
         }
 
-        default function stopNavigation() {} // Güvenli kapatma
         function stopNavigation() {
             isNavActive = false;
             userInteractedWithMap = false;
