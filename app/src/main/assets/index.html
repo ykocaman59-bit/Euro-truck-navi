@@ -79,7 +79,7 @@
         }
         .speed-badge span, .speed-limit-badge span { font-size: 9px; font-weight: 600; color: #64748b; }
 
-        /* Konuma Odaklan (Center) Düğmesi (Başlangıçta Gizli) */
+        /* Konuma Odaklan Düğmesi */
         .recenter-btn {
             position: absolute; bottom: 90px; right: 20px; background: #1c2541; color: #3a86ff;
             width: 50px; height: 50px; border-radius: 50%; display: none; justify-content: center; align-items: center;
@@ -127,7 +127,7 @@
                 </div>
                 <div class="input-group">
                     <i class="fa-solid fa-flag-checkered"></i>
-                    <input type="text" id="destLoc" placeholder="Ev adresi, bina no, cadde (Örn: Sultanbeyli ...)">
+                    <input type="text" id="destLoc" placeholder="Adres veya sokak yazın (Örn: Eren Sokağı)">
                 </div>
                 <button class="btn-primary" onclick="searchAndRoute()"><i class="fa-solid fa-route"></i> Rota Oluştur</button>
             </div>
@@ -147,7 +147,7 @@
                 <div class="speed-limit-badge">50<span>SINIR</span></div>
             </div>
 
-            <!-- Haritayı Ortala / Odaklan Düğmesi -->
+            <!-- Haritayı Ortala Düğmesi -->
             <div class="recenter-btn" id="recenterBtn" onclick="recenterMap()" title="Konuma Odaklan">
                 <i class="fa-solid fa-crosshairs"></i>
             </div>
@@ -201,7 +201,7 @@
         let currentRouteSteps = [];
         let lastQuery = "";
         let currentStepIndex = 0;
-        let userInteractedWithMap = false; // Kullanıcı haritayı elle kaydırdı mı?
+        let userInteractedWithMap = false;
 
         let yellowArrowIcon = L.divIcon({
             html: '<div style="width:40px; height:40px; display:flex; justify-content:center; align-items:center; filter: drop-shadow(0 3px 5px rgba(0,0,0,0.5));"><svg viewBox="0 0 24 24" width="36" height="36"><path d="M12 2L2 22l10-4 10 4L12 2z" fill="#facc15" stroke="#ca8a04" stroke-width="1.5"/></svg></div>',
@@ -218,21 +218,19 @@
 
         userMarker = L.marker([currentLat, currentLng], {icon: yellowArrowIcon}).addTo(map);
 
-        // Kullanıcı haritayı manuel kaydırdığında/yakınlaştırdığında tetiklenir
         map.on('dragstart zoomstart', function() {
             if (isNavActive) {
                 userInteractedWithMap = true;
-                document.getElementById('recenterBtn').style.display = 'flex'; // Ortala düğmesini göster
+                document.getElementById('recenterBtn').style.display = 'flex';
             }
         });
 
         function recenterMap() {
             userInteractedWithMap = false;
-            document.getElementById('recenterBtn').style.display = 'none'; // Düğmeyi gizle
+            document.getElementById('recenterBtn').style.display = 'none';
             map.setView([currentLat, currentLng], 18, {animate: true});
         }
 
-        // GPS Takibi
         if (navigator.geolocation) {
             navigator.geolocation.watchPosition(function(position) {
                 currentLat = position.coords.latitude;
@@ -245,11 +243,9 @@
                 userMarker.setLatLng([currentLat, currentLng]);
 
                 if (isNavActive) {
-                    // Kullanıcı haritaya elle müdahale etmediyse otomatik takip et
                     if (!userInteractedWithMap) {
                         map.setView([currentLat, currentLng], 18, {animate: true});
                     }
-
                     updateNavigationInstructions(currentLat, currentLng);
 
                     if (currentRouteCoordinates.length > 0) {
@@ -275,30 +271,49 @@
             setTimeout(() => { map.invalidateSize(); }, 200);
         }
 
-        // Dünya Genelinde Bina No Dahil Detaylı Adres Arama
+        // Konum Öncelikli Yerel ve Detaylı Adres Arama
         async function searchAndRoute(isRerouting = false) {
-            const query = isRerouting ? lastQuery : document.getElementById('destLoc').value;
-            if(!query) {
+            let rawQuery = isRerouting ? lastQuery : document.getElementById('destLoc').value;
+            if(!rawQuery) {
                 if(!isRerouting) alert('Lütfen bir varış noktası yazın!');
                 return;
             }
-            lastQuery = query;
+            lastQuery = rawQuery;
+
+            // Eğer arama içinde il/ilçe geçmiyorsa, doğru sonuç için "İstanbul Sultanbeyli" ekleyerek aratıyoruz
+            let query = rawQuery;
+            if (!query.toLowerCase().includes('sultanbeyli') && !query.toLowerCase().includes('istanbul')) {
+                query = query + " Sultanbeyli İstanbul";
+            }
 
             try {
-                // addressdetails=1 ve katman parametreleri ile bina/sokak seviyesinde arama
-                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&q=${encodeURIComponent(query)}`);
+                // Konuma en yakın ve en mantıklı sonuçları almak için viewbox veya lat/lon parametreleri ekliyoruz
+                const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&lat=${currentLat}&lon=${currentLng}&q=${encodeURIComponent(query)}`;
+                const response = await fetch(searchUrl);
                 const data = await response.json();
                 
                 if(!data || data.length === 0) {
-                    if(!isRerouting) alert('Aradığınız adres veya bina bulunamadı. Lütfen ilçe/mahalle/cadde ve bina numarasını net yazın.');
+                    if(!isRerouting) alert('Aradığınız adres bulunamadı. Lütfen mahalle veya cadde adını net yazın.');
                     return;
                 }
 
-                const destLat = parseFloat(data[0].lat);
-                const destLng = parseFloat(data[0].lon);
+                // Birden fazla sonuç varsa, kullanıcının GPS konumuna **en yakın** olan sonucu seçiyoruz (Böylece 49 km uzaktakini değil, yakındakini bulur)
+                let bestMatch = data[0];
+                let minDistance = 999999;
+
+                data.forEach(item => {
+                    let d = Math.hypot(parseFloat(item.lat) - currentLat, parseFloat(item.lon) - currentLng);
+                    if (d < minDistance) {
+                        minDistance = d;
+                        bestMatch = item;
+                    }
+                });
+
+                const destLat = parseFloat(bestMatch.lat);
+                const destLng = parseFloat(bestMatch.lon);
 
                 if(destMarker) map.removeLayer(destMarker);
-                destMarker = L.marker([destLat, destLng]).addTo(map).bindPopup("<b>Varış: </b>" + data[0].display_name);
+                destMarker = L.marker([destLat, destLng]).addTo(map).bindPopup("<b>Varış: </b>" + bestMatch.display_name);
 
                 const routeUrl = `https://router.project-osrm.org/route/v1/driving/${currentLng},${currentLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`;
                 const routeRes = await fetch(routeUrl);
