@@ -132,7 +132,7 @@
                 </div>
                 <div class="input-group" style="margin-bottom: 0;">
                     <i class="fa-solid fa-flag-checkered"></i>
-                    <input type="text" id="destLoc" placeholder="İstediğiniz yeri yazın (Örn: İtalya, Sultanbeyli, Kadıköy)" oninput="onSearchInput(this.value)">
+                    <input type="text" id="destLoc" placeholder="İstediğiniz yeri yazın (Örn: Eren Sokak, Sultanbeyli)" oninput="onSearchInput(this.value)">
                     <!-- Öneri Listesi -->
                     <div id="suggestionsBox" class="suggestions-box"></div>
                 </div>
@@ -191,9 +191,6 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // OpenRouteService API Anahtarın
-        const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYzMTU3MGQ5YWU1NDQzYzRiYjBmZWNiYWYwNzAyZWZjIiwiaCI6Im11cm11cjY0In0=";
-
         setTimeout(() => {
             const splash = document.getElementById('splash');
             splash.style.opacity = '0';
@@ -282,7 +279,7 @@
             setTimeout(() => { map.invalidateSize(); }, 200);
         }
 
-        // OpenRouteService Geocoding & Autocomplete Altyapısı (Nokta Atışı Arama)
+        // PHOTON API + Konum Öncelikli Akıllı Arama Altyapısı
         let searchTimeout = null;
         async function onSearchInput(query) {
             clearTimeout(searchTimeout);
@@ -294,7 +291,8 @@
 
             searchTimeout = setTimeout(async () => {
                 try {
-                    const url = `https://api.openrouteservice.org/geocode/autocomplete?api_key=${ORS_API_KEY}&text=${encodeURIComponent(query)}&size=6&boundary.country=TR`;
+                    // lat ve lon parametreleri eklenerek kullanıcının etrafındaki yerler öne getirildi
+                    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lat=${currentLat}&lon=${currentLng}&limit=6&lang=tr`;
                     const res = await fetch(url);
                     const data = await res.json();
 
@@ -302,7 +300,8 @@
                     if (data && data.features && data.features.length > 0) {
                         data.features.forEach(feature => {
                             const props = feature.properties;
-                            let displayName = props.label || [props.name, props.street, props.county, props.locality, props.country].filter(Boolean).join(", ");
+                            let nameParts = [props.name, props.street, props.district, props.city, props.state, props.country].filter(Boolean);
+                            let displayName = nameParts.join(", ");
 
                             const div = document.createElement('div');
                             div.className = 'suggestion-item';
@@ -325,7 +324,7 @@
                 } catch(e) {
                     box.style.display = 'none';
                 }
-            }, 300);
+            }, 250);
         }
 
         document.addEventListener('click', function(e) {
@@ -334,7 +333,7 @@
             }
         });
 
-        // Nokta Atışı Rota Oluşturma ve Adres Çözümleme
+        // Konum Öncelikli Rota Oluşturma
         async function searchAndRoute(isRerouting = false) {
             let query = isRerouting ? lastQuery : document.getElementById('destLoc').value;
             if(!query) {
@@ -351,39 +350,38 @@
                     destLng = selectedDestCoords.lon;
                     destName = selectedDestCoords.name;
                 } else {
-                    const searchUrl = `https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${encodeURIComponent(query)}&size=1`;
+                    const searchUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lat=${currentLat}&lon=${currentLng}&limit=1&lang=tr`;
                     const response = await fetch(searchUrl);
                     const data = await response.json();
                     
                     if(!data || !data.features || data.features.length === 0) {
-                        if(!isRerouting) alert('Aradığınız adres bulunamadı. Lütfen mahalle, sokak veya ilçe bilgilerini net yazarak tekrar deneyin.');
+                        if(!isRerouting) alert('Aradığınız yer bulunamadı. Lütfen kontrol edip tekrar deneyin.');
                         return;
                     }
                     destLat = data.features[0].geometry.coordinates[1];
                     destLng = data.features[0].geometry.coordinates[0];
                     const props = data.features[0].properties;
-                    destName = props.label || [props.name, props.street, props.country].filter(Boolean).join(", ");
+                    destName = [props.name, props.street, props.city, props.country].filter(Boolean).join(", ");
                 }
 
                 if(destMarker) map.removeLayer(destMarker);
                 destMarker = L.marker([destLat, destLng]).addTo(map).bindPopup("<b>Varış: </b>" + destName);
 
-                // OSRM Rotalama ve Manevra Adımları Altyapısı
-                const fallbackRouteUrl = `https://router.project-osrm.org/route/v1/driving/${currentLng},${currentLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`;
-                const fallbackRes = await fetch(fallbackRouteUrl);
-                const fallbackData = await fallbackRes.json();
-                
-                if (fallbackData.code !== "Ok") {
+                const routeUrl = `https://router.project-osrm.org/route/v1/driving/${currentLng},${currentLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`;
+                const routeRes = await fetch(routeUrl);
+                const routeData = await routeRes.json();
+
+                if(routeData.code !== "Ok") {
                     if(!isRerouting) alert('Bu konuma karayolu rotası hesaplanamadı.');
                     return;
                 }
 
-                currentRouteCoordinates = fallbackData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-                currentRouteSteps = fallbackData.routes[0].legs[0].steps;
+                currentRouteCoordinates = routeData.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                currentRouteSteps = routeData.routes[0].legs[0].steps;
                 currentStepIndex = 0;
 
-                const distanceKm = (fallbackData.routes[0].distance / 1000).toFixed(1);
-                const durationMin = Math.round(fallbackData.routes[0].duration / 60);
+                const distanceKm = (routeData.routes[0].distance / 1000).toFixed(1);
+                const durationMin = Math.round(routeData.routes[0].duration / 60);
 
                 if(routeLayer) map.removeLayer(routeLayer);
                 routeLayer = L.polyline(currentRouteCoordinates, {color: '#22c55e', weight: 8, opacity: 0.9}).addTo(map);
@@ -404,7 +402,7 @@
 
             } catch (err) {
                 console.error(err);
-                if(!isRerouting) alert('Bağlantı veya arama hatası oluştu.');
+                if(!isRerouting) alert('Bağlantı hatası oluştu.');
             }
         }
 
@@ -446,6 +444,7 @@
             }
         }
 
+        default function stopNavigation() {} // Güvenli kapatma
         function stopNavigation() {
             isNavActive = false;
             userInteractedWithMap = false;
