@@ -279,7 +279,7 @@
             setTimeout(() => { map.invalidateSize(); }, 200);
         }
 
-        // PHOTON API + Konum Öncelikli Akıllı Arama Altyapısı
+        // NOMINATIM API + Konum Öncelikli Güçlü Arama Altyapısı
         let searchTimeout = null;
         async function onSearchInput(query) {
             clearTimeout(searchTimeout);
@@ -291,26 +291,25 @@
 
             searchTimeout = setTimeout(async () => {
                 try {
-                    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lat=${currentLat}&lon=${currentLng}&limit=6&lang=tr`;
-                    const res = await fetch(url);
+                    // Kullanıcının etrafına öncelik veren Nominatim arama uç noktası
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&lat=${currentLat}&lon=${currentLng}&limit=6&addressdetails=1&countrycodes=tr`;
+                    const res = await fetch(url, {
+                        headers: { 'User-Agent': 'TirNavApp/1.0' }
+                    });
                     const data = await res.json();
 
                     box.innerHTML = '';
-                    if (data && data.features && data.features.length > 0) {
-                        data.features.forEach(feature => {
-                            const props = feature.properties;
-                            let nameParts = [props.name, props.street, props.district, props.city, props.state, props.country].filter(Boolean);
-                            let displayName = nameParts.join(", ");
-
+                    if (data && data.length > 0) {
+                        data.forEach(item => {
                             const div = document.createElement('div');
                             div.className = 'suggestion-item';
-                            div.innerText = displayName;
+                            div.innerText = item.display_name;
                             div.onclick = () => {
-                                document.getElementById('destLoc').value = displayName;
+                                document.getElementById('destLoc').value = item.display_name;
                                 selectedDestCoords = { 
-                                    lon: feature.geometry.coordinates[0], 
-                                    lat: feature.geometry.coordinates[1], 
-                                    name: displayName 
+                                    lon: parseFloat(item.lon), 
+                                    lat: parseFloat(item.lat), 
+                                    name: item.display_name 
                                 };
                                 box.style.display = 'none';
                             };
@@ -323,7 +322,7 @@
                 } catch(e) {
                     box.style.display = 'none';
                 }
-            }, 250);
+            }, 300);
         }
 
         document.addEventListener('click', function(e) {
@@ -349,18 +348,19 @@
                     destLng = selectedDestCoords.lon;
                     destName = selectedDestCoords.name;
                 } else {
-                    const searchUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lat=${currentLat}&lon=${currentLng}&limit=1&lang=tr`;
-                    const response = await fetch(searchUrl);
+                    const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&lat=${currentLat}&lon=${currentLng}&limit=1&countrycodes=tr`;
+                    const response = await fetch(searchUrl, {
+                        headers: { 'User-Agent': 'TirNavApp/1.0' }
+                    });
                     const data = await response.json();
                     
-                    if(!data || !data.features || data.features.length === 0) {
+                    if(!data || data.length === 0) {
                         if(!isRerouting) alert('Aradığınız yer bulunamadı. Lütfen kontrol edip tekrar deneyin.');
                         return;
                     }
-                    destLat = data.features[0].geometry.coordinates[1];
-                    destLng = data.features[0].geometry.coordinates[0];
-                    const props = data.features[0].properties;
-                    destName = [props.name, props.street, props.city, props.country].filter(Boolean).join(", ");
+                    destLat = parseFloat(data[0].lat);
+                    destLng = parseFloat(data[0].lon);
+                    destName = data[0].display_name;
                 }
 
                 if(destMarker) map.removeLayer(destMarker);
