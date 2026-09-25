@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TIRNAV - Tırların Yol Arkadaşı</title>
+    <!-- Yandex Maps JavaScript API 2.1 -->
+    <script src="https://api-maps.yandex.ru/2.1/?apikey=eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYzMTU3MGQ5YWU1NDQzYzRiYjBmZWNiYWYwNzAyZWZjIiwiaCI6Im11cm11cjY0In0=&lang=tr_TR" type="text/javascript"></script>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <!-- FontAwesome for Icons -->
@@ -201,6 +203,33 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        const YANDEX_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYzMTU3MGQ5YWU1NDQzYzRiYjBmZWNiYWYwNzAyZWZjIiwiaCI6Im11cm11cjY0In0=";
+        // Yandex geocoder is the first search source; Photon/Nominatim remain fallbacks.
+        async function fetchYandexGeocode(query, limit=20) {
+            if (!window.ymaps) throw new Error("Yandex API yüklenmedi");
+            await new Promise((resolve, reject) => {
+                try { ymaps.ready(resolve); } catch (e) { reject(e); }
+            });
+            const result = await ymaps.geocode(query, {
+                results: limit,
+                lang: 'tr_TR'
+            });
+            const out = [];
+            result.geoObjects.each(function(obj) {
+                const coords = obj.geometry.getCoordinates();
+                if (!coords || coords.length < 2) return;
+                const meta = obj.properties.get('metaDataProperty.GeocoderMetaData') || {};
+                const text = obj.properties.get('text') || obj.properties.get('name') || query;
+                const desc = obj.properties.get('description') || '';
+                out.push({
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: [Number(coords[1]), Number(coords[0])] },
+                    properties: { name: text, street: desc, display_name: desc ? text + ', ' + desc : text }
+                });
+            });
+            return {features: out};
+        }
+
         setTimeout(() => {
             const splash = document.getElementById('splash');
             splash.style.opacity = '0';
@@ -252,16 +281,30 @@
             document.getElementById('recenterBtn').style.display = 'flex';
         }
 
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(function(position) {
+        let gpsWatchId = null;
+
+        function startGpsTracking() {
+            if (!navigator.geolocation) {
+                document.getElementById('startLoc').value = "GPS desteklenmiyor";
+                return;
+            }
+
+            if (gpsWatchId !== null) {
+                navigator.geolocation.clearWatch(gpsWatchId);
+            }
+
+            gpsWatchId = navigator.geolocation.watchPosition(function(position) {
                 currentLat = position.coords.latitude;
                 currentLng = position.coords.longitude;
                 let speedKmh = position.coords.speed ? Math.round(position.coords.speed * 3.6) : 0;
 
-                document.getElementById('startLoc').value = "Konum Aktif (" + currentLat.toFixed(4) + ", " + currentLng.toFixed(4) + ")";
+                document.getElementById('startLoc').value =
+                    "Konum Aktif (" + currentLat.toFixed(4) + ", " + currentLng.toFixed(4) + ")";
                 document.getElementById('currentSpeedVal').innerText = speedKmh;
 
-                userMarker.setLatLng([currentLat, currentLng]);
+                if (userMarker) {
+                    userMarker.setLatLng([currentLat, currentLng]);
+                }
 
                 if (isNavActive) {
                     if (!userInteractedWithMap) {
@@ -270,7 +313,11 @@
                     updateNavigationInstructions(currentLat, currentLng);
 
                     if (currentRouteCoordinates.length > 0) {
-                        let minDst = getMinDistanceFromRoute(currentLat, currentLng, currentRouteCoordinates);
+                        let minDst = getMinDistanceFromRoute(
+                            currentLat,
+                            currentLng,
+                            currentRouteCoordinates
+                        );
                         if (minDst > 0.035) {
                             alert("Rotadan çıkıldı! Rota yeniden hesaplanıyor...");
                             searchAndRoute(true);
@@ -278,9 +325,25 @@
                     }
                 }
             }, function(error) {
-                document.getElementById('startLoc').value = "GPS Alınamadı";
-            }, { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
+                let message = "GPS Alınamadı";
+                if (error && error.code === 1) {
+                    message = "Konum izni verilmedi";
+                } else if (error && error.code === 2) {
+                    message = "Konum bulunamadı";
+                } else if (error && error.code === 3) {
+                    message = "GPS bekleniyor...";
+                }
+                document.getElementById('startLoc').value = message;
+            }, {
+                enableHighAccuracy: true,
+                maximumAge: 10000,
+                timeout: 15000
+            });
         }
+
+        // Android izin verdikten sonra MainActivity burayı çağırır.
+        window.startGpsTracking = startGpsTracking;
+        startGpsTracking();
 
         function switchTab(tabId, element) {
             document.querySelectorAll('.view-pane').forEach(el => el.classList.remove('active'));
@@ -478,9 +541,11 @@
             box.style.display = 'block';
             searchTimeout = setTimeout(async () => {
                 try {
-                    const data = await fetchPhoton(query, 20);
+                    let data;
+                    try { data = await fetchYandexGeocode(query, 20); }
+                    catch (_) { data = await fetchPhoton(query, 20); }
                     if (requestId !== searchRequestId) return;
-                    let results = (data.features || []).map(f => featureToResult(f)).filter(Boolean);
+                    let results = (data.features || []).map(f => featureToResult(f, 'yandex')).filter(Boolean);
                     // Photon location bias uygular; ayrıca gerçek mesafeye göre sıralamak,
                     // "en yakındaki Eren Sokak" davranışını daha deterministik yapar.
                     results.sort((a,b) => a.distanceKm - b.distanceKm);
@@ -528,7 +593,7 @@
                     // Listeden sonuç seçilmediyse, GPS konumuna bias verilmiş geniş arama yap.
                     let features = [];
                     try {
-                        const data = await fetchPhoton(query, 20);
+                        const data = await fetchYandexGeocode(query, 20);
                         features = data.features || [];
                     } catch (_) {
                         features = await fetchNominatimFallback(query, 10);
