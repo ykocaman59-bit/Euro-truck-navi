@@ -257,13 +257,12 @@
             iconAnchor: [20, 20]
         });
 
-        map = L.map('map', {zoomControl: false}).setView([currentLat, currentLng], 14);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 20,
-            subdomains: 'abcd',
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+                map = L.map('map', {zoomControl: false}).setView([currentLat, currentLng], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
-
+        
         userMarker = L.marker([currentLat, currentLng], {icon: yellowArrowIcon}).addTo(map);
 
         map.on('dragstart zoomstart', function() {
