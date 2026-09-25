@@ -373,26 +373,16 @@
             return { feature, lat, lon, distanceKm, source };
         }
 
-        // AKILLI KELİME DÜZENLEME: Kelime sırası ne olursa olsun Sultanbeyli içinde en iyi eşleşmeyi bulur
+        // KONUM BAĞIMSIZ AKILLI ARAMA: Kullanıcının anlık koordinatlarına (İzmir, İstanbul vb.) göre arama yapar
         function getSmartQueries(query) {
             const clean = query.trim().replace(/[,\/#!$%\^&\*;:{}=\-_`~()?]/g,"");
             const words = clean.split(/\s+/).filter(Boolean);
             if (words.length === 0) return [query];
 
             let queries = [query];
-            // Eğer içinde sultanbeyli veya mahalle/cadde geçmiyorsa otomatik ekle
-            const lowerFull = clean.toLocaleLowerCase('tr-TR');
-            let hasLocationContext = lowerFull.includes('sultanbeyli') || lowerFull.includes('istanbul') || lowerFull.includes('battalgazi');
-
-            if (!hasLocationContext) {
-                queries.push(clean + ' Sultanbeyli');
-            }
-
-            // Kelimeleri ters çevirerek de dene (Örn: "Battalgazi Eren" -> "Eren Battalgazi" gibi)
             if (words.length > 1) {
-                queries.push(words.slice().reverse().join(' ') + ' Sultanbeyli');
+                queries.push(words.slice().reverse().join(' '));
             }
-
             return queries;
         }
 
@@ -409,8 +399,8 @@
                         lang: 'tr',
                         lat: String(currentLat),
                         lon: String(currentLng),
-                        zoom: '16',
-                        location_bias_scale: '5.0'
+                        zoom: '15',
+                        location_bias_scale: '8.0' // Kullanıcının GPS konumuna öncelik verir
                     });
                     const res = await fetch(PHOTON_API + '?' + params.toString(), {headers: {'Accept': 'application/json'}});
                     if (res.ok) {
@@ -438,17 +428,19 @@
             let seenKeys = new Set();
 
             for (let q of searchQueries) {
-                let finalQ = q;
-                if (!q.toLocaleLowerCase('tr-TR').includes('sultanbeyli')) {
-                    finalQ += ', Sultanbeyli, İstanbul';
-                }
                 try {
+                    // Kullanıcının GPS etrafındaki kutu (viewbox) ile arama
+                    const delta = 0.5; // Yaklaşık 50km yarıçap
+                    const viewbox = `${currentLng-delta},${currentLat+delta},${currentLng+delta},${currentLat-delta}`;
+
                     const params = new URLSearchParams({
-                        q: finalQ,
+                        q: q,
                         format: 'jsonv2',
                         addressdetails: '1',
                         limit: String(limit),
-                        'accept-language': 'tr'
+                        'accept-language': 'tr',
+                        viewbox: viewbox,
+                        bounded: '0' // Önce yakına bakar, bulamazsa genelleştirir
                     });
                     const res = await fetch(NOMINATIM_API + '?' + params.toString(), {headers: {'Accept': 'application/json'}});
                     if (res.ok) {
@@ -543,9 +535,7 @@
 
                     if (requestId !== searchRequestId) return;
                     
-                    // Yakınlık mesafesine göre sırala
                     results.sort((a, b) => a.distanceKm - b.distanceKm);
-
                     renderSearchResults(results.slice(0, 12), box);
                 } catch (e) {
                     if (requestId !== searchRequestId) return;
