@@ -31,6 +31,15 @@
         .view-pane.active { display: flex; }
 
         #map { width: 100%; height: 100%; flex: 1; z-index: 1; }
+        .leaflet-control-attribution { font-size: 9px; }
+        .suggestion-item { display:flex; align-items:center; gap:10px; }
+        .suggestion-icon { width:34px; height:34px; border-radius:50%; background:#eef2f7; color:#64748b; display:flex; align-items:center; justify-content:center; flex:0 0 34px; }
+        .suggestion-content { min-width:0; flex:1; }
+        .suggestion-title { font-size:14px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .suggestion-subtitle { font-size:12px; color:#aab4c3; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .suggestion-distance { font-size:12px; color:#aab4c3; margin-left:auto; white-space:nowrap; }
+        .search-status { padding:12px; font-size:13px; color:#aab4c3; }
+        .recenter-btn { display:flex; }
 
         /* Bottom Navigation Bar */
         .bottom-nav {
@@ -55,7 +64,7 @@
         .input-group i { color: #3a86ff; margin-right: 10px; }
         .input-group input { background: transparent; border: none; color: #fff; width: 100%; outline: none; font-size: 14px; }
         
-        /* Arama Öneri Kutusu */
+        /* Arama Öneri Kutusu (Yandex Benzeri Akıllı Otomatik Tamamlama) */
         .suggestions-box {
             position: absolute; top: 100%; left: 0; right: 0; background: #1c2541;
             border: 1px solid #3a506b; border-radius: 0 0 8px 8px; max-height: 220px;
@@ -92,7 +101,7 @@
         /* Konuma Odaklan Düğmesi */
         .recenter-btn {
             position: absolute; bottom: 90px; right: 20px; background: #1c2541; color: #3a86ff;
-            width: 50px; height: 50px; border-radius: 50%; display: none; justify-content: center; align-items: center;
+            width: 50px; height: 50px; border-radius: 50%; display: flex; justify-content: center; align-items: center;
             z-index: 2000; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 2px solid #3a86ff; cursor: pointer; font-size: 20px;
         }
 
@@ -108,6 +117,7 @@
         .progress-bar-container { width: 100%; height: 6px; background: #334155; border-radius: 3px; overflow: hidden; margin-bottom: 12px; }
         .progress-bar-fill { width: 0%; height: 100%; background: #22c55e; transition: width 0.3s; }
 
+        /* Panels / Settings */
         .content-panel { padding: 20px; overflow-y: auto; height: 100%; }
         .panel-title { font-size: 20px; font-weight: 700; margin-bottom: 15px; color: #fff; display: flex; align-items: center; gap: 10px; }
     </style>
@@ -132,8 +142,8 @@
                 </div>
                 <div class="input-group" style="margin-bottom: 0;">
                     <i class="fa-solid fa-flag-checkered"></i>
-                    <input type="text" id="destLoc" placeholder="İstediğiniz yeri yazın (Örn: Eren Sokak, Sultanbeyli)" oninput="onSearchInput(this.value)">
-                    <!-- Öneri Listesi -->
+                    <input type="text" id="destLoc" placeholder="İstediğiniz yeri yazın (Örn: İtalya, Roma, Kadıköy)" oninput="onSearchInput(this.value)">
+                    <!-- Yandex Tarzı Öneri Listesi -->
                     <div id="suggestionsBox" class="suggestions-box"></div>
                 </div>
                 <button class="btn-primary" style="margin-top: 10px;" onclick="searchAndRoute()"><i class="fa-solid fa-route"></i> Rota Oluştur</button>
@@ -155,7 +165,7 @@
             </div>
 
             <!-- Haritayı Ortala Düğmesi -->
-            <div class="recenter-btn" id="recenterBtn" onclick="recenterMap()" title="Konuma Odaklan">
+            <div class="recenter-btn" id="recenterBtn" onclick="recenterMap()" title="Konumuma dön">
                 <i class="fa-solid fa-crosshairs"></i>
             </div>
 
@@ -219,24 +229,27 @@
         });
 
         map = L.map('map', {zoomControl: false}).setView([currentLat, currentLng], 14);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap'
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            maxZoom: 20,
+            subdomains: 'abcd',
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
         }).addTo(map);
 
-        userMarker = L.marker([currentLat, currentLng], {icon: yellowArrowImage = yellowArrowIcon}).addTo(map);
+        userMarker = L.marker([currentLat, currentLng], {icon: yellowArrowIcon}).addTo(map);
 
         map.on('dragstart zoomstart', function() {
+            // Harita serbestçe gezilebilir. Sadece navigasyon sırasında otomatik
+            // konum takibini bırakırız; GPS marker'ı hareket etmeye devam eder.
             if (isNavActive) {
                 userInteractedWithMap = true;
-                document.getElementById('recenterBtn').style.display = 'flex';
             }
+            document.getElementById('recenterBtn').style.display = 'flex';
         });
 
         function recenterMap() {
             userInteractedWithMap = false;
-            document.getElementById('recenterBtn').style.display = 'none';
-            map.setView([currentLat, currentLng], 18, {animate: true});
+            map.setView([currentLat, currentLng], 17, {animate: true});
+            document.getElementById('recenterBtn').style.display = 'flex';
         }
 
         if (navigator.geolocation) {
@@ -263,8 +276,6 @@
                             searchAndRoute(true);
                         }
                     }
-                } else {
-                    map.setView([currentLat, currentLng], 15);
                 }
             }, function(error) {
                 document.getElementById('startLoc').value = "GPS Alınamadı";
@@ -279,66 +290,225 @@
             setTimeout(() => { map.invalidateSize(); }, 200);
         }
 
-        // AKILLI SOKAK VE CADDE FİLTRELİ ARAMA ALTYAPISI
+        // GELİŞMİŞ YER ARAMA
+        // Photon, OpenStreetMap tabanlı bir geocoder'dır. GPS koordinatlarını\n        // aramaya bias olarak gönderiyoruz ve dönen sonuçları gerçek kuş uçuşu\n        // mesafeye göre tekrar sıralıyoruz. Böylece "Eren Sokak" gibi bir\n        // sorguda önce kullanıcının bulunduğu yere yakın sonuçlar görünür.
         let searchTimeout = null;
+        let searchRequestId = 0;
+        const PHOTON_API = 'https://photon.komoot.io/api/';
+        const NOMINATIM_API = 'https://nominatim.openstreetmap.org/search';
+
+        function haversineKm(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) ** 2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        function formatDistance(km) {
+            if (!Number.isFinite(km)) return '';
+            if (km < 1) return Math.round(km * 1000) + ' m';
+            if (km < 10) return km.toFixed(1).replace('.', ',') + ' km';
+            return Math.round(km) + ' km';
+        }
+
+        function normalizeSearchQuery(query) {
+            const q = query.trim();
+            const lower = q.toLocaleLowerCase('tr-TR');
+            const aliases = {
+                'uk': 'United Kingdom',
+                'u.k.': 'United Kingdom',
+                'ingiltere': 'United Kingdom',
+                'birleşik krallık': 'United Kingdom',
+                'birlesik krallik': 'United Kingdom',
+                'almanya': 'Germany',
+                'fransa': 'France',
+                'italya': 'Italy',
+                'ispanya': 'Spain',
+                'hollanda': 'Netherlands',
+                'belçika': 'Belgium',
+                'belcika': 'Belgium',
+                'avusturya': 'Austria',
+                'isviçre': 'Switzerland',
+                'isvicre': 'Switzerland',
+                'türkiye': 'Turkey',
+                'turkiye': 'Turkey'
+            };
+            return aliases[lower] || q;
+        }
+
+        function getFeatureName(feature) {
+            const p = feature.properties || {};
+            return p.name || p.street || p.city || p.state || p.country || 'Konum';
+        }
+
+        function getFeatureSubtitle(feature) {
+            const p = feature.properties || {};
+            const parts = [];
+            if (p.street && p.name !== p.street) parts.push(p.street + (p.housenumber ? ' ' + p.housenumber : ''));
+            else if (p.housenumber && p.street) parts.push(p.street + ' ' + p.housenumber);
+            if (p.district) parts.push(p.district);
+            if (p.city) parts.push(p.city);
+            if (p.state && p.state !== p.city) parts.push(p.state);
+            if (p.country) parts.push(p.country);
+            return [...new Set(parts.filter(Boolean))].join(', ');
+        }
+
+        function getFeatureIcon(feature) {
+            const p = feature.properties || {};
+            const layer = p.osm_value || p.type || p.osm_key || '';
+            if (['city','town','village','municipality','country','state'].includes(layer)) return 'fa-city';
+            if (['street','road'].includes(layer)) return 'fa-road';
+            if (['house','building'].includes(layer)) return 'fa-house';
+            return 'fa-location-dot';
+        }
+
+        function featureToResult(feature, source='photon') {
+            const c = feature.geometry && feature.geometry.coordinates;
+            if (!c || c.length < 2) return null;
+            const lat = Number(c[1]);
+            const lon = Number(c[0]);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+            const distanceKm = haversineKm(currentLat, currentLng, lat, lon);
+            return { feature, lat, lon, distanceKm, source };
+        }
+
+        function photonUrl(query, limit=20) {
+            const params = new URLSearchParams({
+                q: normalizeSearchQuery(query),
+                limit: String(limit),
+                lang: 'tr',
+                lat: String(currentLat),
+                lon: String(currentLng),
+                zoom: '12',
+                location_bias_scale: '0.1',
+                dedupe: '1'
+            });
+            return PHOTON_API + '?' + params.toString();
+        }
+
+        async function fetchPhoton(query, limit=20) {
+            const res = await fetch(photonUrl(query, limit), {headers: {'Accept': 'application/json'}});
+            if (!res.ok) throw new Error('Photon HTTP ' + res.status);
+            return await res.json();
+        }
+
+        async function fetchNominatimFallback(query, limit=10) {
+            // Yalnızca kullanıcı açıkça arama yaptığında / Photon sonuç vermediğinde
+            // yedek geocoder olarak kullanılır; her tuş vuruşunda çağrılmaz.
+            const params = new URLSearchParams({
+                q: normalizeSearchQuery(query),
+                format: 'jsonv2',
+                addressdetails: '1',
+                limit: String(limit),
+                'accept-language': 'tr',
+                'viewbox': `${currentLng-2},${currentLat+2},${currentLng+2},${currentLat-2}`
+            });
+            const res = await fetch(NOMINATIM_API + '?' + params.toString(), {
+                headers: {'Accept': 'application/json'}
+            });
+            if (!res.ok) throw new Error('Nominatim HTTP ' + res.status);
+            const items = await res.json();
+            return items.map(item => ({
+                type: 'Feature',
+                geometry: {type: 'Point', coordinates: [Number(item.lon), Number(item.lat)]},
+                properties: {
+                    name: item.name || item.display_name,
+                    street: item.address?.road,
+                    housenumber: item.address?.house_number,
+                    district: item.address?.suburb || item.address?.neighbourhood,
+                    city: item.address?.city || item.address?.town || item.address?.village,
+                    state: item.address?.state,
+                    country: item.address?.country,
+                    osm_value: item.type
+                }
+            }));
+        }
+
+        function renderSearchResults(results, box) {
+            box.innerHTML = '';
+            if (!results.length) {
+                box.innerHTML = '<div class="search-status">Sonuç bulunamadı. Daha geniş bir adres veya yer adı deneyin.</div>';
+                box.style.display = 'block';
+                return;
+            }
+            results.forEach(result => {
+                const feature = result.feature;
+                const title = getFeatureName(feature);
+                const subtitle = getFeatureSubtitle(feature) || (feature.properties?.country || '');
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.innerHTML = `
+                    <div class="suggestion-icon"><i class="fa-solid ${getFeatureIcon(feature)}"></i></div>
+                    <div class="suggestion-content">
+                        <div class="suggestion-title"></div>
+                        <div class="suggestion-subtitle"></div>
+                    </div>
+                    <div class="suggestion-distance">${formatDistance(result.distanceKm)}</div>`;
+                div.querySelector('.suggestion-title').textContent = title;
+                div.querySelector('.suggestion-subtitle').textContent = subtitle;
+                div.onclick = () => {
+                    const displayName = subtitle ? `${title}, ${subtitle}` : title;
+                    document.getElementById('destLoc').value = displayName;
+                    selectedDestCoords = {lon: result.lon, lat: result.lat, name: displayName};
+                    box.style.display = 'none';
+                    map.setView([result.lat, result.lon], 16, {animate: true});
+                    if (destMarker) map.removeLayer(destMarker);
+                    destMarker = L.marker([result.lat, result.lon]).addTo(map).bindPopup('<b>' + escapeHtml(title) + '</b><br>' + escapeHtml(subtitle)).openPopup();
+                };
+                box.appendChild(div);
+            });
+            box.style.display = 'block';
+        }
+
+        function escapeHtml(value) {
+            return String(value || '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+        }
+
         async function onSearchInput(query) {
             clearTimeout(searchTimeout);
             const box = document.getElementById('suggestionsBox');
-            if (!query || query.length < 2) {
+            selectedDestCoords = null;
+            if (!query || query.trim().length < 2) {
                 box.style.display = 'none';
                 return;
             }
-
+            const requestId = ++searchRequestId;
+            box.innerHTML = '<div class="search-status"><i class="fa-solid fa-spinner fa-spin"></i> Yakın sonuçlar aranıyor...</div>';
+            box.style.display = 'block';
             searchTimeout = setTimeout(async () => {
                 try {
-                    // Kullanıcı etrafında arama yapıp sokak/caddeleri öne çıkaran parametreler
-                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&lat=${currentLat}&lon=${currentLng}&limit=8&addressdetails=1&countrycodes=tr`;
-                    const res = await fetch(url, {
-                        headers: { 'User-Agent': 'TirNavApp/1.0' }
-                    });
-                    const data = await res.json();
-
-                    box.innerHTML = '';
-                    if (data && data.length > 0) {
-                        // Sokak ve caddeleri dükkan/işletmelerin (eczane vb.) önüne geçirecek akıllı sıralama
-                        data.sort((a, b) => {
-                            let aIsRoad = (a.type === 'residential' || a.type === 'road' || a.class === 'highway') ? -1 : 1;
-                            let bIsRoad = (b.type === 'residential' || b.type === 'road' || b.class === 'highway') ? -1 : 1;
-                            return aIsRoad - bIsRoad;
-                        });
-
-                        data.forEach(item => {
-                            const div = document.createElement('div');
-                            div.className = 'suggestion-item';
-                            div.innerText = item.display_name;
-                            div.onclick = () => {
-                                document.getElementById('destLoc').value = item.display_name;
-                                selectedDestCoords = { 
-                                    lon: parseFloat(item.lon), 
-                                    lat: parseFloat(item.lat), 
-                                    name: item.display_name 
-                                };
-                                box.style.display = 'none';
-                            };
-                            box.appendChild(div);
-                        });
-                        box.style.display = 'block';
-                    } else {
-                        box.style.display = 'none';
+                    const data = await fetchPhoton(query, 20);
+                    if (requestId !== searchRequestId) return;
+                    let results = (data.features || []).map(f => featureToResult(f)).filter(Boolean);
+                    // Photon location bias uygular; ayrıca gerçek mesafeye göre sıralamak,
+                    // "en yakındaki Eren Sokak" davranışını daha deterministik yapar.
+                    results.sort((a,b) => a.distanceKm - b.distanceKm);
+                    renderSearchResults(results.slice(0, 12), box);
+                } catch (e) {
+                    if (requestId !== searchRequestId) return;
+                    box.innerHTML = '<div class="search-status">Arama servisine bağlanılıyor...</div>';
+                    // Photon geçici olarak cevap vermezse yedek olarak Nominatim deneyelim.
+                    try {
+                        const features = await fetchNominatimFallback(query, 10);
+                        let results = features.map(f => featureToResult(f, 'nominatim')).filter(Boolean);
+                        results.sort((a,b) => a.distanceKm - b.distanceKm);
+                        renderSearchResults(results.slice(0, 10), box);
+                    } catch (_) {
+                        box.innerHTML = '<div class="search-status">Arama şu anda kullanılamıyor. İnternet bağlantınızı kontrol edin.</div>';
                     }
-                } catch(e) {
-                    box.style.display = 'none';
                 }
-            }, 300);
+            }, 350);
         }
 
+        // Tıklama dışına çıkınca öneri kutusunu kapat
         document.addEventListener('click', function(e) {
-            if (!document.getElementById('destLoc').contains(e.target)) {
-                document.getElementById('suggestionsBox').style.display = 'none';
-            }
+            const input = document.getElementById('destLoc');
+            const box = document.getElementById('suggestionsBox');
+            if (!input.contains(e.target) && !box.contains(e.target)) box.style.display = 'none';
         });
 
-        // Rota Oluşturma
+        // Nokta Atışı Rota Oluşturma
         async function searchAndRoute(isRerouting = false) {
             let query = isRerouting ? lastQuery : document.getElementById('destLoc').value;
             if(!query) {
@@ -355,19 +525,23 @@
                     destLng = selectedDestCoords.lon;
                     destName = selectedDestCoords.name;
                 } else {
-                    const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&lat=${currentLat}&lon=${currentLng}&limit=1&countrycodes=tr`;
-                    const response = await fetch(searchUrl, {
-                        headers: { 'User-Agent': 'TirNavApp/1.0' }
-                    });
-                    const data = await response.json();
-                    
-                    if(!data || data.length === 0) {
-                        if(!isRerouting) alert('Aradığınız yer bulunamadı. Lütfen kontrol edip tekrar deneyin.');
+                    // Listeden sonuç seçilmediyse, GPS konumuna bias verilmiş geniş arama yap.
+                    let features = [];
+                    try {
+                        const data = await fetchPhoton(query, 20);
+                        features = data.features || [];
+                    } catch (_) {
+                        features = await fetchNominatimFallback(query, 10);
+                    }
+                    const results = features.map(f => featureToResult(f)).filter(Boolean).sort((a,b) => a.distanceKm - b.distanceKm);
+                    if (!results.length) {
+                        if(!isRerouting) alert('Aradığınız yer bulunamadı. Lütfen adresi veya yer adını kontrol edip tekrar deneyin.');
                         return;
                     }
-                    destLat = parseFloat(data[0].lat);
-                    destLng = parseFloat(data[0].lon);
-                    destName = data[0].display_name;
+                    const best = results[0];
+                    destLat = best.lat;
+                    destLng = best.lon;
+                    destName = getFeatureName(best.feature) + (getFeatureSubtitle(best.feature) ? ', ' + getFeatureSubtitle(best.feature) : '');
                 }
 
                 if(destMarker) map.removeLayer(destMarker);
@@ -378,7 +552,7 @@
                 const routeData = await routeRes.json();
 
                 if(routeData.code !== "Ok") {
-                    if(!isRerouting) alert('Bu konuma karayolu rotası hesaplanamadı.');
+                    if(!isRerouting) alert('Bu konuma karayolu rotası hesaplanamadı (Deniz aşırı veya çok uzak mesafe olabilir).');
                     return;
                 }
 
@@ -459,7 +633,7 @@
             document.getElementById('navTopLeft').style.display = 'none';
             document.getElementById('navTopRight').style.display = 'none';
             document.getElementById('navBottomPanel').style.display = 'none';
-            document.getElementById('recenterBtn').style.display = 'none';
+            document.getElementById('recenterBtn').style.display = 'flex';
             document.getElementById('searchCard').style.display = 'block';
             if(routeLayer) map.removeLayer(routeLayer);
             if(destMarker) map.removeLayer(destMarker);
