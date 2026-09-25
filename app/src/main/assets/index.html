@@ -66,7 +66,7 @@
         .input-group i { color: #3a86ff; margin-right: 10px; }
         .input-group input { background: transparent; border: none; color: #fff; width: 100%; outline: none; font-size: 14px; }
         
-        /* Arama Öneri Kutusu (Yandex Benzeri Akıllı Otomatik Tamamlama) */
+        /* Arama Öneri Kutusu */
         .suggestions-box {
             position: absolute; top: 100%; left: 0; right: 0; background: #1c2541;
             border: 1px solid #3a506b; border-radius: 0 0 8px 8px; max-height: 220px;
@@ -144,8 +144,7 @@
                 </div>
                 <div class="input-group" style="margin-bottom: 0;">
                     <i class="fa-solid fa-flag-checkered"></i>
-                    <input type="text" id="destLoc" placeholder="İstediğiniz yeri yazın (Örn: İtalya, Roma, Kadıköy)" oninput="onSearchInput(this.value)">
-                    <!-- Yandex Tarzı Öneri Listesi -->
+                    <input type="text" id="destLoc" placeholder="İstediğiniz yeri yazın (Örn: Eren Sokak, Yunusemre Caddesi)" oninput="onSearchInput(this.value)">
                     <div id="suggestionsBox" class="suggestions-box"></div>
                 </div>
                 <button class="btn-primary" style="margin-top: 10px;" onclick="searchAndRoute()"><i class="fa-solid fa-route"></i> Rota Oluştur</button>
@@ -204,21 +203,33 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const YANDEX_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYzMTU3MGQ5YWU1NDQzYzRiYjBmZWNiYWYwNzAyZWZjIiwiaCI6Im11cm11cjY0In0=";
-        // Yandex geocoder is the first search source; Photon/Nominatim remain fallbacks.
+        
+        // Yandex geocoder sorgusuna konum odaklı arama ekledik (en yakın sonuçlar öne çıkacak)
         async function fetchYandexGeocode(query, limit=20) {
             if (!window.ymaps) throw new Error("Yandex API yüklenmedi");
             await new Promise((resolve, reject) => {
                 try { ymaps.ready(resolve); } catch (e) { reject(e); }
             });
-            const result = await ymaps.geocode(query, {
+            
+            // Eğer sorgu içinde il/ilçe adı yoksa ve kullanıcı konumumuz belliyse, 
+            // aramayı daha hassas yapmak için yakındaki bölge bağlamını destekliyoruz.
+            const searchQuery = query; 
+
+            const result = await ymaps.geocode(searchQuery, {
                 results: limit,
-                lang: 'tr_TR'
+                lang: 'tr_TR',
+                // Kullanıcının anlık GPS konumunu merkeze alarak arama bias (ağırlık) veriyoruz
+                boundedBy: [
+                    [currentLat - 0.1, currentLng - 0.1],
+                    [currentLat + 0.1, currentLng + 0.1]
+                ],
+                strictBounds: false // Sınırları zorunlu kılmıyoruz ama yakınları önceliklendiriyoruz
             });
+
             const out = [];
             result.geoObjects.each(function(obj) {
                 const coords = obj.geometry.getCoordinates();
                 if (!coords || coords.length < 2) return;
-                const meta = obj.properties.get('metaDataProperty.GeocoderMetaData') || {};
                 const text = obj.properties.get('text') || obj.properties.get('name') || query;
                 const desc = obj.properties.get('description') || '';
                 out.push({
@@ -257,7 +268,7 @@
             iconAnchor: [20, 20]
         });
 
-                map = L.map('map', {zoomControl: false}).setView([currentLat, currentLng], 14);
+        map = L.map('map', {zoomControl: false}).setView([currentLat, currentLng], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; OpenStreetMap contributors'
@@ -266,8 +277,6 @@
         userMarker = L.marker([currentLat, currentLng], {icon: yellowArrowIcon}).addTo(map);
 
         map.on('dragstart zoomstart', function() {
-            // Harita serbestçe gezilebilir. Sadece navigasyon sırasında otomatik
-            // konum takibini bırakırız; GPS marker'ı hareket etmeye devam eder.
             if (isNavActive) {
                 userInteractedWithMap = true;
             }
@@ -325,13 +334,9 @@
                 }
             }, function(error) {
                 let message = "GPS Alınamadı";
-                if (error && error.code === 1) {
-                    message = "Konum izni verilmedi";
-                } else if (error && error.code === 2) {
-                    message = "Konum bulunamadı";
-                } else if (error && error.code === 3) {
-                    message = "GPS bekleniyor...";
-                }
+                if (error && error.code === 1) message = "Konum izni verilmedi";
+                else if (error && error.code === 2) message = "Konum bulunamadı";
+                else if (error && error.code === 3) message = "GPS bekleniyor...";
                 document.getElementById('startLoc').value = message;
             }, {
                 enableHighAccuracy: true,
@@ -340,7 +345,6 @@
             });
         }
 
-        // Android izin verdikten sonra MainActivity burayı çağırır.
         window.startGpsTracking = startGpsTracking;
         startGpsTracking();
 
@@ -352,8 +356,6 @@
             setTimeout(() => { map.invalidateSize(); }, 200);
         }
 
-        // GELİŞMİŞ YER ARAMA
-        // Photon, OpenStreetMap tabanlı bir geocoder'dır. GPS koordinatlarını\n        // aramaya bias olarak gönderiyoruz ve dönen sonuçları gerçek kuş uçuşu\n        // mesafeye göre tekrar sıralıyoruz. Böylece "Eren Sokak" gibi bir\n        // sorguda önce kullanıcının bulunduğu yere yakın sonuçlar görünür.
         let searchTimeout = null;
         let searchRequestId = 0;
         const PHOTON_API = 'https://photon.komoot.io/api/';
@@ -379,20 +381,12 @@
             const lower = q.toLocaleLowerCase('tr-TR');
             const aliases = {
                 'uk': 'United Kingdom',
-                'u.k.': 'United Kingdom',
                 'ingiltere': 'United Kingdom',
-                'birleşik krallık': 'United Kingdom',
-                'birlesik krallik': 'United Kingdom',
                 'almanya': 'Germany',
                 'fransa': 'France',
                 'italya': 'Italy',
                 'ispanya': 'Spain',
                 'hollanda': 'Netherlands',
-                'belçika': 'Belgium',
-                'belcika': 'Belgium',
-                'avusturya': 'Austria',
-                'isviçre': 'Switzerland',
-                'isvicre': 'Switzerland',
                 'türkiye': 'Turkey',
                 'turkiye': 'Turkey'
             };
@@ -442,8 +436,8 @@
                 lang: 'tr',
                 lat: String(currentLat),
                 lon: String(currentLng),
-                zoom: '12',
-                location_bias_scale: '0.1',
+                zoom: '15',
+                location_bias_scale: '0.5', // Konum odaklılığı artırıldı
                 dedupe: '1'
             });
             return PHOTON_API + '?' + params.toString();
@@ -456,15 +450,13 @@
         }
 
         async function fetchNominatimFallback(query, limit=10) {
-            // Yalnızca kullanıcı açıkça arama yaptığında / Photon sonuç vermediğinde
-            // yedek geocoder olarak kullanılır; her tuş vuruşunda çağrılmaz.
             const params = new URLSearchParams({
                 q: normalizeSearchQuery(query),
                 format: 'jsonv2',
                 addressdetails: '1',
                 limit: String(limit),
                 'accept-language': 'tr',
-                'viewbox': `${currentLng-2},${currentLat+2},${currentLng+2},${currentLat-2}`
+                'viewbox': `${currentLng-0.5},${currentLat+0.5},${currentLng+0.5},${currentLat-0.5}`
             });
             const res = await fetch(NOMINATIM_API + '?' + params.toString(), {
                 headers: {'Accept': 'application/json'}
@@ -490,7 +482,7 @@
         function renderSearchResults(results, box) {
             box.innerHTML = '';
             if (!results.length) {
-                box.innerHTML = '<div class="search-status">Sonuç bulunamadı. Daha geniş bir adres veya yer adı deneyin.</div>';
+                box.innerHTML = '<div class="search-status">Sonuç bulunamadı. Daha açık bir adres yazın.</div>';
                 box.style.display = 'block';
                 return;
             }
@@ -516,7 +508,7 @@
                     box.style.display = 'none';
                     map.setView([result.lat, result.lon], 16, {animate: true});
                     if (destMarker) map.removeLayer(destMarker);
-                    destMarker = L.marker([result.lat, result.lon]).addTo(map).bindPopup('<b>' + escapeHtml(title) + '</b><br>' + escapeHtml(subtitle)).openPopup();
+                    destMarker = L.marker([result.lat, result.lon]).addTo(map).bindPopup('<b>' + escapeHtml(title)  + '</b><br>' + escapeHtml(subtitle)).openPopup();
                 };
                 box.appendChild(div);
             });
@@ -536,43 +528,43 @@
                 return;
             }
             const requestId = ++searchRequestId;
-            box.innerHTML = '<div class="search-status"><i class="fa-solid fa-spinner fa-spin"></i> Yakın sonuçlar aranıyor...</div>';
+            box.innerHTML = '<div class="search-status"><i class="fa-solid fa-spinner fa-spin"></i> Yakın yerler aranıyor...</div>';
             box.style.display = 'block';
             searchTimeout = setTimeout(async () => {
                 try {
                     let data;
-                    try { data = await fetchYandexGeocode(query, 20); }
-                    catch (_) { data = await fetchPhoton(query, 20); }
+                    try { 
+                        // Önce Photon ile konum odaklı arama yapıyoruz (sokak ve caddelerde çok daha başarılıdır)
+                        data = await fetchPhoton(query, 20); 
+                    } catch (_) { 
+                        data = await fetchYandexGeocode(query, 20); 
+                    }
                     if (requestId !== searchRequestId) return;
-                    let results = (data.features || []).map(f => featureToResult(f, 'yandex')).filter(Boolean);
-                    // Photon location bias uygular; ayrıca gerçek mesafeye göre sıralamak,
-                    // "en yakındaki Eren Sokak" davranışını daha deterministik yapar.
+                    let results = (data.features || []).map(f => featureToResult(f, 'photon')).filter(Boolean);
+                    
+                    // Bulunduğumuz konuma en yakın olan sonuçları her zaman en üste sıralıyoruz
                     results.sort((a,b) => a.distanceKm - b.distanceKm);
                     renderSearchResults(results.slice(0, 12), box);
                 } catch (e) {
                     if (requestId !== searchRequestId) return;
-                    box.innerHTML = '<div class="search-status">Arama servisine bağlanılıyor...</div>';
-                    // Photon geçici olarak cevap vermezse yedek olarak Nominatim deneyelim.
                     try {
                         const features = await fetchNominatimFallback(query, 10);
                         let results = features.map(f => featureToResult(f, 'nominatim')).filter(Boolean);
                         results.sort((a,b) => a.distanceKm - b.distanceKm);
                         renderSearchResults(results.slice(0, 10), box);
                     } catch (_) {
-                        box.innerHTML = '<div class="search-status">Arama şu anda kullanılamıyor. İnternet bağlantınızı kontrol edin.</div>';
+                        box.innerHTML = '<div class="search-status">Arama yapılamadı. İnternetinizi kontrol edin.</div>';
                     }
                 }
             }, 350);
         }
 
-        // Tıklama dışına çıkınca öneri kutusunu kapat
         document.addEventListener('click', function(e) {
             const input = document.getElementById('destLoc');
             const box = document.getElementById('suggestionsBox');
             if (!input.contains(e.target) && !box.contains(e.target)) box.style.display = 'none';
         });
 
-        // Nokta Atışı Rota Oluşturma
         async function searchAndRoute(isRerouting = false) {
             let query = isRerouting ? lastQuery : document.getElementById('destLoc').value;
             if(!query) {
@@ -589,17 +581,16 @@
                     destLng = selectedDestCoords.lon;
                     destName = selectedDestCoords.name;
                 } else {
-                    // Listeden sonuç seçilmediyse, GPS konumuna bias verilmiş geniş arama yap.
                     let features = [];
                     try {
-                        const data = await fetchYandexGeocode(query, 20);
+                        const data = await fetchPhoton(query, 20);
                         features = data.features || [];
                     } catch (_) {
                         features = await fetchNominatimFallback(query, 10);
                     }
                     const results = features.map(f => featureToResult(f)).filter(Boolean).sort((a,b) => a.distanceKm - b.distanceKm);
                     if (!results.length) {
-                        if(!isRerouting) alert('Aradığınız yer bulunamadı. Lütfen adresi veya yer adını kontrol edip tekrar deneyin.');
+                        if(!isRerouting) alert('Aradığınız yer bulunamadı.');
                         return;
                     }
                     const best = results[0];
@@ -616,7 +607,7 @@
                 const routeData = await routeRes.json();
 
                 if(routeData.code !== "Ok") {
-                    if(!isRerouting) alert('Bu konuma karayolu rotası hesaplanamadı (Deniz aşırı veya çok uzak mesafe olabilir).');
+                    if(!isRerouting) alert('Bu konuma karayolu rotası hesaplanamadı.');
                     return;
                 }
 
@@ -689,6 +680,7 @@
         }
 
         function stopNavigation() {
+            isNavDataActive = false;
             isNavActive = false;
             userInteractedWithMap = false;
             currentRouteCoordinates = [];
@@ -704,13 +696,17 @@
             map.setView([currentLat, currentLng], 15);
         }
 
-        function getMinDistanceFromRoute(lat, lng, coords) {
+        function getMinDistanceFromRate(lat, lng, coords) {
             let minDist = 999;
             for (let i = 0; i < coords.length; i++) {
                 let dist = Math.hypot(coords[i][0] - lat, coords[i][1] - lng);
                 if (dist < minDist) minDist = dist;
             }
             return minDist;
+        }
+
+        function getMinDistanceFromRoute(lat, lng, coords) {
+            return getMinDistanceFromRate(lat, lng, coords);
         }
     </script>
 </body>
