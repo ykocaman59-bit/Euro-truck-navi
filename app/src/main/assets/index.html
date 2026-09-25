@@ -144,7 +144,7 @@
                 </div>
                 <div class="input-group" style="margin-bottom: 0;">
                     <i class="fa-solid fa-flag-checkered"></i>
-                    <input type="text" id="destLoc" placeholder="İstediğiniz yeri yazın (Örn: Eren Sokak)" oninput="onSearchInput(this.value)">
+                    <input type="text" id="destLoc" placeholder="İstediğiniz yeri yazın (Örn: Yunusemre Caddesi)" oninput="onSearchInput(this.value)">
                     <div id="suggestionsBox" class="suggestions-box"></div>
                 </div>
                 <button class="btn-primary" style="margin-top: 10px;" onclick="searchAndRoute()"><i class="fa-solid fa-route"></i> Rota Oluştur</button>
@@ -202,39 +202,6 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const YANDEX_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYzMTU3MGQ5YWU1NDQzYzRiYjBmZWNiYWYwNzAyZWZjIiwiaCI6Im11cm11cjY0In0=";
-        
-        async function fetchYandexGeocode(query, limit=30) {
-            if (!window.ymaps) throw new Error("Yandex API yüklenmedi");
-            await new Promise((resolve, reject) => {
-                try { ymaps.ready(resolve); } catch (e) { reject(e); }
-            });
-            
-            const result = await ymaps.geocode(query, {
-                results: limit,
-                lang: 'tr_TR',
-                boundedBy: [
-                    [currentLat - 0.5, currentLng - 0.5],
-                    [currentLat + 0.5, currentLng + 0.5]
-                ],
-                strictBounds: false
-            });
-
-            const out = [];
-            result.geoObjects.each(function(obj) {
-                const coords = obj.geometry.getCoordinates();
-                if (!coords || coords.length < 2) return;
-                const text = obj.properties.get('text') || obj.properties.get('name') || query;
-                const desc = obj.properties.get('description') || '';
-                out.push({
-                    type: 'Feature',
-                    geometry: { type: 'Point', coordinates: [Number(coords[1]), Number(coords[0])] },
-                    properties: { name: text, street: desc, display_name: desc ? text + ', ' + desc : text }
-                });
-            });
-            return {features: out};
-        }
-
         setTimeout(() => {
             const splash = document.getElementById('splash');
             splash.style.opacity = '0';
@@ -370,23 +337,6 @@
             return Math.round(km) + ' km';
         }
 
-        function normalizeSearchQuery(query) {
-            const q = query.trim();
-            const lower = q.toLocaleLowerCase('tr-TR');
-            const aliases = {
-                'uk': 'United Kingdom',
-                'ingiltere': 'United Kingdom',
-                'almanya': 'Germany',
-                'fransa': 'France',
-                'italya': 'Italy',
-                'ispanya': 'Spain',
-                'hollanda': 'Netherlands',
-                'türkiye': 'Turkey',
-                'turkiye': 'Turkey'
-            };
-            return aliases[lower] || q;
-        }
-
         function getFeatureName(feature) {
             const p = feature.properties || {};
             return p.name || p.street || p.city || p.state || p.country || 'Konum';
@@ -423,59 +373,116 @@
             return { feature, lat, lon, distanceKm, source };
         }
 
-        function photonUrl(query, limit=30) {
-            const params = new URLSearchParams({
-                q: normalizeSearchQuery(query),
-                limit: String(limit),
-                lang: 'tr',
-                lat: String(currentLat),
-                lon: String(currentLng),
-                zoom: '14',
-                location_bias_scale: '0.8',
-                dedupe: '1'
-            });
-            return PHOTON_API + '?' + params.toString();
+        // AKILLI KELİME DÜZENLEME: Kelime sırası ne olursa olsun Sultanbeyli içinde en iyi eşleşmeyi bulur
+        function getSmartQueries(query) {
+            const clean = query.trim().replace(/[,\/#!$%\^&\*;:{}=\-_`~()?]/g,"");
+            const words = clean.split(/\s+/).filter(Boolean);
+            if (words.length === 0) return [query];
+
+            let queries = [query];
+            // Eğer içinde sultanbeyli veya mahalle/cadde geçmiyorsa otomatik ekle
+            const lowerFull = clean.toLocaleLowerCase('tr-TR');
+            let hasLocationContext = lowerFull.includes('sultanbeyli') || lowerFull.includes('istanbul') || lowerFull.includes('battalgazi');
+
+            if (!hasLocationContext) {
+                queries.push(clean + ' Sultanbeyli');
+            }
+
+            // Kelimeleri ters çevirerek de dene (Örn: "Battalgazi Eren" -> "Eren Battalgazi" gibi)
+            if (words.length > 1) {
+                queries.push(words.slice().reverse().join(' ') + ' Sultanbeyli');
+            }
+
+            return queries;
         }
 
-        async function fetchPhoton(query, limit=30) {
-            const res = await fetch(photonUrl(query, limit), {headers: {'Accept': 'application/json'}});
-            if (!res.ok) throw new Error('Photon HTTP ' + res.status);
-            return await res.json();
+        async function fetchPhotonSmart(query, limit=30) {
+            const searchQueries = getSmartQueries(query);
+            let allFeatures = [];
+            let seenKeys = new Set();
+
+            for (let q of searchQueries) {
+                try {
+                    const params = new URLSearchParams({
+                        q: q,
+                        limit: String(limit),
+                        lang: 'tr',
+                        lat: String(currentLat),
+                        lon: String(currentLng),
+                        zoom: '16',
+                        location_bias_scale: '5.0'
+                    });
+                    const res = await fetch(PHOTON_API + '?' + params.toString(), {headers: {'Accept': 'application/json'}});
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.features) {
+                            for (let f of data.features) {
+                                const coords = f.geometry && f.geometry.coordinates;
+                                if (!coords) continue;
+                                const key = coords[0].toFixed(4) + ',' + coords[1].toFixed(4) + '-' + (f.properties.name || '');
+                                if (!seenKeys.has(key)) {
+                                    seenKeys.add(key);
+                                    allFeatures.push(f);
+                                }
+                            }
+                        }
+                    }
+                } catch(e) {}
+            }
+            return { features: allFeatures };
         }
 
-        async function fetchNominatimFallback(query, limit=15) {
-            const params = new URLSearchParams({
-                q: normalizeSearchQuery(query),
-                format: 'jsonv2',
-                addressdetails: '1',
-                limit: String(limit),
-                'accept-language': 'tr'
-            });
-            const res = await fetch(NOMINATIM_API + '?' + params.toString(), {
-                headers: {'Accept': 'application/json'}
-            });
-            if (!res.ok) throw new Error('Nominatim HTTP ' + res.status);
-            const items = await res.json();
-            return items.map(item => ({
-                type: 'Feature',
-                geometry: {type: 'Point', coordinates: [Number(item.lon), Number(item.lat)]},
-                properties: {
-                    name: item.name || item.display_name,
-                    street: item.address?.road,
-                    housenumber: item.address?.house_number,
-                    district: item.address?.suburb || item.address?.neighbourhood,
-                    city: item.address?.city || item.address?.town || item.address?.village,
-                    state: item.address?.state,
-                    country: item.address?.country,
-                    osm_value: item.type
+        async function fetchNominatimSmart(query, limit=20) {
+            const searchQueries = getSmartQueries(query);
+            let allItems = [];
+            let seenKeys = new Set();
+
+            for (let q of searchQueries) {
+                let finalQ = q;
+                if (!q.toLocaleLowerCase('tr-TR').includes('sultanbeyli')) {
+                    finalQ += ', Sultanbeyli, İstanbul';
                 }
-            }));
+                try {
+                    const params = new URLSearchParams({
+                        q: finalQ,
+                        format: 'jsonv2',
+                        addressdetails: '1',
+                        limit: String(limit),
+                        'accept-language': 'tr'
+                    });
+                    const res = await fetch(NOMINATIM_API + '?' + params.toString(), {headers: {'Accept': 'application/json'}});
+                    if (res.ok) {
+                        const items = await res.json();
+                        for (let item of items) {
+                            const key = item.lat + ',' + item.lon;
+                            if (!seenKeys.has(key)) {
+                                seenKeys.add(key);
+                                allItems.push({
+                                    type: 'Feature',
+                                    geometry: {type: 'Point', coordinates: [Number(item.lon), Number(item.lat)]},
+                                    properties: {
+                                        name: item.name || item.display_name,
+                                        street: item.address?.road,
+                                        housenumber: item.address?.house_number,
+                                        district: item.address?.suburb || item.address?.neighbourhood,
+                                        city: item.address?.city || item.address?.town || item.address?.village,
+                                        state: item.address?.state,
+                                        country: item.address?.country,
+                                        osm_value: item.type
+                                    }
+                                });
+                            }
+                        }
+                    }
+                } catch(e) {}
+            }
+            return allItems;
         }
 
         function renderSearchResults(results, box) {
             box.innerHTML = '';
             if (!results.length) {
-                box.innerHTML = '<div class="search-status">Sonuç bulunamadı. Daha açık bir adres yazın.</div>';
+                box.innerHTML = '<div class="search-status">Sonuç bulunamadı. Lütfen cadde veya sokak adını kontrol edin.</div>';
                 box.style.display = 'block';
                 return;
             }
@@ -521,39 +528,30 @@
                 return;
             }
             const requestId = ++searchRequestId;
-            box.innerHTML = '<div class="search-status"><i class="fa-solid fa-spinner fa-spin"></i> Konuma yakın yerler aranıyor...</div>';
+            box.innerHTML = '<div class="search-status"><i class="fa-solid fa-spinner fa-spin"></i> Akıllı arama yapılıyor...</div>';
             box.style.display = 'block';
             
             searchTimeout = setTimeout(async () => {
                 try {
-                    let data;
-                    try { 
-                        data = await fetchPhoton(query, 30); 
-                    } catch (_) { 
-                        data = await fetchYandexGeocode(query, 30); 
-                    }
-                    if (requestId !== searchRequestId) return;
-                    
+                    let data = await fetchPhotonSmart(query, 30);
                     let results = (data.features || []).map(f => featureToResult(f, 'photon')).filter(Boolean);
                     
-                    // Anlık GPS konumumuza olan mesafeye göre en yakından en uzağa sıralıyoruz
+                    if (results.length === 0) {
+                        const fallbackFeatures = await fetchNominatimSmart(query, 20);
+                        results = fallbackFeatures.map(f => featureToResult(f, 'nominatim')).filter(Boolean);
+                    }
+
+                    if (requestId !== searchRequestId) return;
+                    
+                    // Yakınlık mesafesine göre sırala
                     results.sort((a, b) => a.distanceKm - b.distanceKm);
 
                     renderSearchResults(results.slice(0, 12), box);
                 } catch (e) {
                     if (requestId !== searchRequestId) return;
-                    try {
-                        const features = await fetchNominatimFallback(query, 15);
-                        let results = features.map(f => featureToResult(f, 'nominatim')).filter(Boolean);
-                        
-                        results.sort((a, b) => a.distanceKm - b.distanceKm);
-                        
-                        renderSearchResults(results.slice(0, 12), box);
-                    } catch (_) {
-                        box.innerHTML = '<div class="search-status">Arama yapılamadı. İnternetinizi kontrol edin.</div>';
-                    }
+                    box.innerHTML = '<div class="search-status">Arama yapılamadı. İnternetinizi kontrol edin.</div>';
                 }
-            }, 350);
+            }, 300);
         }
 
         document.addEventListener('click', function(e) {
@@ -578,14 +576,16 @@
                     destLng = selectedDestCoords.lon;
                     destName = selectedDestCoords.name;
                 } else {
-                    let features = [];
-                    try {
-                        const data = await fetchPhoton(query, 30);
-                        features = data.features || [];
-                    } catch (_) {
-                        features = await fetchNominatimFallback(query, 15);
+                    let results = [];
+                    let data = await fetchPhotonSmart(query, 30);
+                    results = (data.features || []).map(f => featureToResult(f)).filter(Boolean);
+                    
+                    if (results.length === 0) {
+                        let fallbackFeatures = await fetchNominatimSmart(query, 20);
+                        results = fallbackFeatures.map(f => featureToResult(f)).filter(Boolean);
                     }
-                    const results = features.map(f => featureToResult(f)).filter(Boolean).sort((a,b) => a.distanceKm - b.distanceKm);
+
+                    results.sort((a,b) => a.distanceKm - b.distanceKm);
                     if (!results.length) {
                         if(!isRerouting) alert('Aradığınız yer bulunamadı.');
                         return;
