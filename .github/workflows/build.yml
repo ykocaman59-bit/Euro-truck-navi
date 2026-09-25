@@ -3,477 +3,55 @@ name: TIRNAV Android APK Builder
 on:
   push:
     branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Repo Kodlarını İndir
-      uses: actions/checkout@v4
-
-    - name: Java (JDK) Ortamını Kur
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-
-    - name: Gradle Kurulumu (7.5)
-      uses: gradle/actions/setup-gradle@v3
-      with:
-        gradle-version: '7.5'
-
-    - name: TIRNAV Android Gradle Projesini Oluştur ve Derle
-      run: |
-        # ---------------------------------------------------------
-        # DİZİNLER
-        # ---------------------------------------------------------
-
-        mkdir -p app/src/main/java/com/github/ykocaman59bit/tirnav
-        mkdir -p app/src/main/res/layout
-        mkdir -p app/src/main/res/values
-        mkdir -p app/src/main/res/drawable
-        mkdir -p app/src/main/res/mipmap-hdpi
-
-
-        # ---------------------------------------------------------
-        # ANDROID MANIFEST
-        # ---------------------------------------------------------
-
-        cat << 'EOF' > app/src/main/AndroidManifest.xml
-        <?xml version="1.0" encoding="utf-8"?>
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-            <uses-permission android:name="android.permission.INTERNET" />
-            <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-            
-            <uses-permission android:name="android.permission.CAMERA" />
-            <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-            <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-            <uses-permission android:name="android.permission.RECORD_AUDIO" />
-            <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-            <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
-            <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-            <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-            <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-            <uses-permission android:name="android.permission.READ_CONTACTS" />
-            <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-            <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
-            <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
-
-            <uses-feature
-                android:name="android.hardware.camera"
-                android:required="false" />
-            <uses-feature
-                android:name="android.hardware.camera.autofocus"
-                android:required="false" />
-
-            <application
-                android:allowBackup="false"
-                android:icon="@mipmap/ic_launcher"
-                android:label="TIRNAV"
-                android:roundIcon="@mipmap/ic_launcher_round"
-                android:supportsRtl="true"
-                android:theme="@style/Theme.AppCompat.Light.NoActionBar"
-                android:usesCleartextTraffic="true">
-
-                <activity
-                    android:name=".SplashActivity"
-                    android:exported="true"
-                    android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN" />
-                        <category android:name="android.intent.category.LAUNCHER" />
-                    </intent-filter>
-                </activity>
-
-                <activity
-                    android:name=".MainActivity"
-                    android:exported="false"
-                    android:configChanges="orientation|screenSize|keyboardHidden" />
-
-            </application>
-
-        </manifest>
-        EOF
-
-
-        # ---------------------------------------------------------
-        # SPLASH ACTIVITY
-        # ---------------------------------------------------------
-
-        cat << 'EOF' > app/src/main/java/com/github/ykocaman59bit/tirnav/SplashActivity.java
-        package com.github.ykocaman59bit.tirnav;
-
-        import android.Manifest;
-        import android.content.Intent;
-        import android.content.pm.PackageManager;
-        import android.os.Build;
-        import android.os.Bundle;
-        import android.os.Handler;
-        import android.os.Looper;
-        import android.view.animation.AlphaAnimation;
-        import android.view.animation.Animation;
-        import android.widget.ImageView;
-        import android.widget.LinearLayout;
-        import android.graphics.Color;
-
-        import androidx.annotation.NonNull;
-        import androidx.appcompat.app.AppCompatActivity;
-        import androidx.core.app.ActivityCompat;
-        import androidx.core.content.ContextCompat;
-
-        import java.util.ArrayList;
-        import java.util.List;
-
-        public class SplashActivity extends AppCompatActivity {
-
-            private static final int PERMISSION_REQUEST_CODE = 123;
-
-            @Override
-            protected void onCreate(Bundle savedInstanceState) {
-                super.onCreate(savedInstanceState);
-
-                LinearLayout layout = new LinearLayout(this);
-                layout.setOrientation(LinearLayout.VERTICAL);
-                layout.setGravity(android.view.Gravity.CENTER);
-                layout.setBackgroundColor(Color.parseColor("#FFFFFF"));
-
-                ImageView logoView = new ImageView(this);
-                logoView.setImageResource(R.mipmap.ic_launcher);
-
-                LinearLayout.LayoutParams params =
-                        new LinearLayout.LayoutParams(300, 300);
-
-                logoView.setLayoutParams(params);
-                layout.addView(logoView);
-
-                setContentView(layout);
-
-                Animation fadeIn =
-                        new AlphaAnimation(0.0f, 1.0f);
-
-                fadeIn.setDuration(1000);
-                logoView.startAnimation(fadeIn);
-
-                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        checkAndRequestPermissions();
-                    }
-                }, 2000);
-            }
-
-            private void checkAndRequestPermissions() {
-                List<String> listPermissionsNeeded = new ArrayList<>();
-
-                listPermissionsNeeded.add(Manifest.permission.CAMERA);
-                listPermissionsNeeded.add(Manifest.permission.ACCESS_FINE_LOCATION);
-                listPermissionsNeeded.add(Manifest.permission.ACCESS_COARSE_LOCATION);
-                listPermissionsNeeded.add(Manifest.permission.RECORD_AUDIO);
-                listPermissionsNeeded.add(Manifest.permission.READ_CONTACTS);
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    listPermissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS);
-                    listPermissionsNeeded.add(Manifest.permission.READ_MEDIA_IMAGES);
-                    listPermissionsNeeded.add(Manifest.permission.READ_MEDIA_VIDEO);
-                    listPermissionsNeeded.add(Manifest.permission.NEARBY_WIFI_DEVICES);
-                } else {
-                    listPermissionsNeeded.add(Manifest.permission.READ_EXTERNAL_STORAGE);
-                }
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    listPermissionsNeeded.add(Manifest.permission.ACTIVITY_RECOGNITION);
-                }
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    listPermissionsNeeded.add(Manifest.permission.BLUETOOTH_CONNECT);
-                    listPermissionsNeeded.add(Manifest.permission.BLUETOOTH_SCAN);
-                }
-
-                List<String> permissionsToRequest = new ArrayList<>();
-                for (String perm : listPermissionsNeeded) {
-                    if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
-                        permissionsToRequest.add(perm);
-                    }
-                }
-
-                if (!permissionsToRequest.isEmpty()) {
-                    ActivityCompat.requestPermissions(this, permissionsToRequest.toArray(new String[0]), PERMISSION_REQUEST_CODE);
-                } else {
-                    proceedToMain();
-                }
-            }
-
-            @Override
-            public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-                super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-                if (requestCode == PERMISSION_REQUEST_CODE) {
-                    proceedToMain();
-                }
-            }
-
-            private void proceedToMain() {
-                Intent intent = new Intent(SplashActivity.this, MainActivity.class);
-                startActivity(intent);
-                finish();
-            }
-        }
-        EOF
-
-
-        # ---------------------------------------------------------
-        # MAIN ACTIVITY (WebView Geolocation Desteği Eklendi)
-        # ---------------------------------------------------------
-
-        cat << 'EOF' > app/src/main/java/com/github/ykocaman59bit/tirnav/MainActivity.java
-        package com.github.ykocaman59bit.tirnav;
-
-        import android.Manifest;
-        import android.content.pm.PackageManager;
-        import android.graphics.Color;
-        import android.net.Uri;
-        import android.os.Build;
-        import android.os.Bundle;
-        import android.webkit.GeolocationPermissions;
-        import android.webkit.PermissionRequest;
-        import android.webkit.WebChromeClient;
-        import android.webkit.WebResourceRequest;
-        import android.webkit.WebResourceResponse;
-        import android.webkit.WebSettings;
-        import android.webkit.WebView;
-        import android.webkit.WebViewClient;
-
-        import androidx.annotation.NonNull;
-        import androidx.appcompat.app.AppCompatActivity;
-        import androidx.webkit.WebViewAssetLoader;
-
-        public class MainActivity extends AppCompatActivity {
-
-            private WebView webView;
-            private static final int CAMERA_PERMISSION_REQUEST = 1001;
-            private PermissionRequest pendingPermissionRequest;
-            private WebViewAssetLoader assetLoader;
-
-            @Override
-            protected void onCreate(Bundle savedInstanceState) {
-                super.onCreate(savedInstanceState);
-
-                webView = new WebView(this);
-                webView.setBackgroundColor(Color.BLACK);
-
-                WebSettings webSettings = webView.getSettings();
-                webSettings.setJavaScriptEnabled(true);
-                webSettings.setDomStorageEnabled(true);
-                webSettings.setDatabaseEnabled(true);
-                webSettings.setMediaPlaybackRequiresUserGesture(false);
-                webSettings.setAllowFileAccess(true);
-                webSettings.setAllowContentAccess(true);
-                webSettings.setGeolocationEnabled(true); // GPS Konum Desteği Aktif
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
-                }
-
-                assetLoader = new WebViewAssetLoader.Builder()
-                        .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
-                        .build();
-
-                webView.setWebViewClient(new WebViewClient() {
-                    @Override
-                    public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                        return assetLoader.shouldInterceptRequest(request.getUrl());
-                    }
-
-                    @Override
-                    @SuppressWarnings("deprecation")
-                    public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
-                        return assetLoader.shouldInterceptRequest(Uri.parse(url));
-                    }
-                });
-
-                webView.setWebChromeClient(new WebChromeClient() {
-                    @Override
-                    public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
-                        callback.invoke(origin, true, false); // Web sitesinin konum istemesine otomatik onay ver
-                    }
-
-                    @Override
-                    public void onPermissionRequest(final PermissionRequest request) {
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                String origin = request.getOrigin().toString();
-                                boolean kendiUygulamamiz = origin.startsWith("https://appassets.androidplatform.net");
-
-                                if (!kendiUygulamamiz) {
-                                    request.deny();
-                                    return;
-                                }
-
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                    if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                                        pendingPermissionRequest = request;
-                                        requestPermissions(new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST);
-                                        return;
-                                    }
-                                }
-
-                                request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
-                            }
-                        });
-                    }
-                });
-
-                WebView.setWebContentsDebuggingEnabled(true);
-                webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
-                setContentView(webView);
-            }
-
-            @Override
-            public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-                super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-                if (requestCode == CAMERA_PERMISSION_REQUEST) {
-                    if (pendingPermissionRequest != null) {
-                        boolean izinVerildi = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-                        if (izinVerildi) {
-                            pendingPermissionRequest.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
-                        } else {
-                            pendingPermissionRequest.deny();
-                        }
-                        pendingPermissionRequest = null;
-                    }
-                }
-            }
-
-            @Override
-            public void onBackPressed() {
-                if (webView != null && webView.canGoBack()) {
-                    webView.goBack();
-                } else {
-                    super.onBackPressed();
-                }
-            }
-
-            @Override
-            protected void onDestroy() {
-                if (webView != null) {
-                    webView.stopLoading();
-                    webView.destroy();
-                    webView = null;
-                }
-                super.onDestroy();
-            }
-        }
-        EOF
-
-
-        # ---------------------------------------------------------
-        # ROOT BUILD.GRADLE
-        # ---------------------------------------------------------
-
-        cat << 'EOF' > build.gradle
-        buildscript {
-            repositories {
-                google()
-                mavenCentral()
-            }
-            dependencies {
-                classpath 'com.android.tools.build:gradle:7.4.2'
-            }
-        }
-        allprojects {
-            repositories {
-                google()
-                mavenCentral()
-            }
-        }
-        task clean(type: Delete) {
-            delete rootProject.buildDir
-        }
-        EOF
-
-
-        # ---------------------------------------------------------
-        # SETTINGS.GRADLE
-        # ---------------------------------------------------------
-
-        cat << 'EOF' > settings.gradle
-        rootProject.name = "TIRNAV"
-        include ':app'
-        EOF
-
-
-        # ---------------------------------------------------------
-        # APP BUILD.GRADLE
-        # ---------------------------------------------------------
-
-        cat << 'EOF' > app/build.gradle
-        plugins {
-            id 'com.android.application'
-        }
-        android {
-            namespace 'com.github.ykocaman59bit.tirnav'
-            compileSdk 33
-            defaultConfig {
-                applicationId "com.github.ykocaman59bit.tirnav"
-                minSdk 24
-                targetSdk 33
-                versionCode 1
-                versionName "1.0.0"
-            }
-            buildTypes {
-                release {
-                    minifyEnabled false
-                }
-            }
-            compileOptions {
-                sourceCompatibility JavaVersion.VERSION_11
-                targetCompatibility JavaVersion.VERSION_11
-            }
-        }
-        dependencies {
-            implementation 'androidx.appcompat:appcompat:1.6.1'
-            implementation 'com.google.android.material:material:1.9.0'
-            implementation 'androidx.webkit:webkit:1.7.0'
-        }
-        EOF
-
-
-        # ---------------------------------------------------------
-        # GRADLE PROPERTIES
-        # ---------------------------------------------------------
-
-        cat << 'EOF' > gradle.properties
-        org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-        android.useAndroidX=true
-        android.enableJetifier=true
-        EOF
-
-
-        # ---------------------------------------------------------
-        # VARSAYILAN LOGO OLUŞTURMA
-        # ---------------------------------------------------------
-        if [ ! -f icon.svg ]; then
-          echo '<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192"><rect width="192" height="192" fill="#1e293b"/><text x="50%" y="50%" font-size="60" fill="#ffffff" text-anchor="middle" dominant-baseline="central">T</text></svg>' > icon.svg
-        fi
-
-        sudo apt-get update && sudo apt-get install -y librsvg2-bin
-        rsvg-convert -w 192 -h 192 icon.svg -o app/src/main/res/mipmap-hdpi/ic_launcher.png
-        cp app/src/main/res/mipmap-hdpi/ic_launcher.png app/src/main/res/mipmap-hdpi/ic_launcher_round.png
-
-
-        # ---------------------------------------------------------
-        # APK DERLE & İSİMLENDİR
-        # ---------------------------------------------------------
-        gradle assembleDebug --no-daemon
-        cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/TIRNAV.apk
-
-    - name: APK Dosyasını Kaydet
-      uses: actions/upload-artifact@v4
-      with:
-        name: TIRNAV
-        path: app/build/outputs/apk/debug/TIRNAV.apk
-        if-no-files-found: error
-        retention-days: 1
-        
+      - name: Repo Kodlarını İndir
+        uses: actions/checkout@v4
+
+      - name: Java (JDK) Ortamını Kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Gradle Kurulumu
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '7.5'
+
+      - name: Launcher ikonunu hazırla
+        run: |
+          mkdir -p app/src/main/res/mipmap-hdpi
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
+
+          rsvg-convert \
+            -w 192 \
+            -h 192 \
+            icon.svg \
+            -o app/src/main/res/mipmap-hdpi/ic_launcher.png
+
+          cp \
+            app/src/main/res/mipmap-hdpi/ic_launcher.png \
+            app/src/main/res/mipmap-hdpi/ic_launcher_round.png
+
+      - name: TIRNAV APK Derle
+        run: |
+          gradle assembleDebug --no-daemon
+
+          cp \
+            app/build/outputs/apk/debug/app-debug.apk \
+            app/build/outputs/apk/debug/TIRNAV.apk
+
+      - name: APK Dosyasını Kaydet
+        uses: actions/upload-artifact@v4
+        with:
+          name: TIRNAV
+          path: app/build/outputs/apk/debug/TIRNAV.apk
+          if-no-files-found: error
+          retention-days: 1
