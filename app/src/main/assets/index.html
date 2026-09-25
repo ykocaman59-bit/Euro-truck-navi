@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TIRNAV - Tırların Yol Arkadaşı</title>
-    <!-- Yandex Maps JavaScript API 2.1 -->
-    <script src="https://api-maps.yandex.ru/2.1/?apikey=eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImYzMTU3MGQ5YWU1NDQzYzRiYjBmZWNiYWYwNzAyZWZjIiwiaCI6Im11cm11cjY0In0=&lang=tr_TR" type="text/javascript"></script>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <!-- FontAwesome for Icons -->
@@ -373,7 +371,6 @@
             return { feature, lat, lon, distanceKm, source };
         }
 
-        // AKILLI ARAMA: Kullanıcının yazdığı ifadeyi genişleterek ilçe ve cadde eklemeleri yapar
         function getSmartQueries(query) {
             const clean = query.trim().replace(/[,\/#!$%\^&\*;:{}=\-_`~()?]/g,"");
             const words = clean.split(/\s+/).filter(Boolean);
@@ -382,7 +379,6 @@
             let queries = [query];
             const lowerFull = clean.toLocaleLowerCase('tr-TR');
             
-            // Eğer sorgu içinde ilçe/şehir adı geçmiyorsa otomatik olarak Sultanbeyli/İstanbul ekleyerek de arat
             let hasLocationContext = lowerFull.includes('sultanbeyli') || lowerFull.includes('istanbul');
             
             if (!hasLocationContext) {
