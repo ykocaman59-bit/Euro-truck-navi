@@ -142,7 +142,7 @@
                 </div>
                 <div class="input-group" style="margin-bottom: 0;">
                     <i class="fa-solid fa-flag-checkered"></i>
-                    <input type="text" id="destLoc" placeholder="İstediğiniz yeri yazın (Örn: Yunusemre Caddesi)" oninput="onSearchInput(this.value)">
+                    <input type="text" id="destLoc" placeholder="İstediğiniz yeri yazın (Örn: Eren Sokak veya İzmir Eren Sk)" oninput="onSearchInput(this.value)">
                     <div id="suggestionsBox" class="suggestions-box"></div>
                 </div>
                 <button class="btn-primary" style="margin-top: 10px;" onclick="searchAndRoute()"><i class="fa-solid fa-route"></i> Rota Oluştur</button>
@@ -212,6 +212,7 @@
         let destMarker = null;
         let currentLat = 40.9778;
         let currentLng = 29.2672;
+        let currentCityName = ""; // GPS üzerinden anlık bulunacak il ismi
         let isNavActive = false;
         let currentRouteCoordinates = [];
         let currentRouteSteps = [];
@@ -250,6 +251,19 @@
 
         let gpsWatchId = null;
 
+        // Anlık koordinattan il adını tersine çevirme (Reverse Geocoding)
+        async function updateCityFromCoords(lat, lon) {
+            try {
+                let res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=tr`);
+                if (res.ok) {
+                    let data = await res.json();
+                    if (data && data.address) {
+                        currentCityName = data.address.province || data.address.city || data.address.state || "";
+                    }
+                }
+            } catch(e) {}
+        }
+
         function startGpsTracking() {
             if (!navigator.geolocation) {
                 document.getElementById('startLoc').value = "GPS desteklenmiyor";
@@ -260,13 +274,17 @@
                 navigator.geolocation.clearWatch(gpsWatchId);
             }
 
-            gpsWatchId = navigator.geolocation.watchPosition(function(position) {
+            gpsWatchId = navigator.geolocation.watchPosition(async function(position) {
                 currentLat = position.coords.latitude;
                 currentLng = position.coords.longitude;
                 let speedKmh = position.coords.speed ? Math.round(position.coords.speed * 3.6) : 0;
 
+                if (!currentCityName) {
+                    await updateCityFromCoords(currentLat, currentLng);
+                }
+
                 document.getElementById('startLoc').value =
-                    "Konum Aktif (" + currentLat.toFixed(4) + ", " + currentLng.toFixed(4) + ")";
+                    "Konum Aktif (" + (currentCityName ? currentCityName + " - " : "") + currentLat.toFixed(4) + ", " + currentLng.toFixed(4) + ")";
                 document.getElementById('currentSpeedVal').innerText = speedKmh;
 
                 if (userMarker) {
@@ -371,6 +389,7 @@
             return { feature, lat, lon, distanceKm, source };
         }
 
+        // AKILLI DİNAMİK ARAMA: Hangi ildeysen orayı baz alır, başka il yazarsan onu arar
         function getSmartQueries(query) {
             const clean = query.trim().replace(/[,\/#!$%\^&\*;:{}=\-_`~()?]/g,"");
             const words = clean.split(/\s+/).filter(Boolean);
@@ -379,15 +398,17 @@
             let queries = [query];
             const lowerFull = clean.toLocaleLowerCase('tr-TR');
             
-            let hasLocationContext = lowerFull.includes('sultanbeyli') || lowerFull.includes('istanbul');
+            // Türkiye'deki illerin tespiti için basit kontrol
+            const commonCities = ['istanbul', 'izmir', 'ankara', 'bursa', 'antalya', 'adana', 'konya', 'trabzon', 'samsun', 'gaziantep', 'kocaeli', 'sultanbeyli'];
+            let hasCityContext = commonCities.some(city => lowerFull.includes(city));
             
-            if (!hasLocationContext) {
-                queries.push(clean + ' Sultanbeyli İstanbul');
-                queries.push(clean + ' Sultanbeyli');
+            if (!hasCityContext && currentCityName) {
+                // Kullanıcı başka şehir belirtmediyse, şu anki GPS ilini otomatik ekle
+                queries.push(clean + ' ' + currentCityName);
             }
 
-            if (words.length > 1) {
-                queries.push(words.slice().reverse().join(' ') + ' Sultanbeyli');
+            if (words.length > 1 && !hasCityContext && currentCityName) {
+                queries.push(words.slice().reverse().join(' ') + ' ' + currentCityName);
             }
 
             return queries;
@@ -436,8 +457,11 @@
 
             for (let q of searchQueries) {
                 let finalQ = q;
-                if (!q.toLocaleLowerCase('tr-TR').includes('sultanbeyli')) {
-                    finalQ += ', Sultanbeyli, İstanbul';
+                const lowerQ = q.toLocaleLowerCase('tr-TR');
+                let hasCity = ['istanbul', 'izmir', 'ankara', 'bursa', 'antalya', 'adana', 'konya', 'trabzon', 'samsun', 'gaziantep', 'kocaeli', 'sultanbeyli'].some(c => lowerQ.includes(c));
+                
+                if (!hasCity && currentCityName) {
+                    finalQ += ', ' + currentCityName;
                 }
                 try {
                     const params = new URLSearchParams({
