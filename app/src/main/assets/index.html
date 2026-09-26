@@ -32,14 +32,7 @@
 
         #map { width: 100%; height: 100%; flex: 1; z-index: 1; }
         .leaflet-control-attribution { font-size: 9px; }
-        .suggestion-item { display:flex; align-items:center; gap:10px; }
-        .suggestion-icon { width:34px; height:34px; border-radius:50%; background:#eef2f7; color:#64748b; display:flex; align-items:center; justify-content:center; flex:0 0 34px; }
-        .suggestion-content { min-width:0; flex:1; }
-        .suggestion-title { font-size:14px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .suggestion-subtitle { font-size:12px; color:#aab4c3; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .suggestion-distance { font-size:12px; color:#aab4c3; margin-left:auto; white-space:nowrap; }
         .search-status { padding:12px; font-size:13px; color:#aab4c3; text-align: center; }
-        .recenter-btn { display:flex; }
 
         /* Bottom Navigation Bar */
         .bottom-nav {
@@ -70,8 +63,13 @@
             border: 1px solid #3a506b; border-radius: 0 0 8px 8px; max-height: 220px;
             overflow-y: auto; z-index: 2000; display: none; box-shadow: 0 8px 16px rgba(0,0,0,0.4);
         }
-        .suggestion-item { padding: 10px 12px; font-size: 13px; color: #e2e8f0; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; }
+        .suggestion-item { display:flex; align-items:center; gap:10px; padding: 10px 12px; font-size: 13px; color: #e2e8f0; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; }
         .suggestion-item:hover { background: #3a86ff; color: #fff; }
+        .suggestion-icon { width:34px; height:34px; border-radius:50%; background:#eef2f7; color:#64748b; display:flex; align-items:center; justify-content:center; flex:0 0 34px; }
+        .suggestion-content { min-width:0; flex:1; }
+        .suggestion-title { font-size:14px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .suggestion-subtitle { font-size:12px; color:#aab4c3; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .suggestion-distance { font-size:12px; color:#aab4c3; margin-left:auto; white-space:nowrap; }
 
         .btn-primary {
             width: 100%; background: #3a86ff; color: #fff; border: none; padding: 12px; border-radius: 8px;
@@ -131,7 +129,7 @@
             <div class="splash-subtitle">Tırların Yol Arkadaşı</div>
         </div>
 
-        <!-- 1. Ana Sayfa -->
+        <!-- 1. Ana Sayfa (Harita & Navigasyon) -->
         <div id="view-home" class="view-pane active">
             <div id="map"></div>
             
@@ -212,7 +210,7 @@
         let destMarker = null;
         let currentLat = 40.9778;
         let currentLng = 29.2672;
-        let currentCityName = ""; // GPS üzerinden anlık bulunacak il ismi
+        let currentCityName = "";
         let isNavActive = false;
         let currentRouteCoordinates = [];
         let currentRouteSteps = [];
@@ -251,7 +249,6 @@
 
         let gpsWatchId = null;
 
-        // Anlık koordinattan il adını tersine çevirme (Reverse Geocoding)
         async function updateCityFromCoords(lat, lon) {
             try {
                 let res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=tr`);
@@ -298,11 +295,7 @@
                     updateNavigationInstructions(currentLat, currentLng);
 
                     if (currentRouteCoordinates.length > 0) {
-                        let minDst = getMinDistanceFromRoute(
-                            currentLat,
-                            currentLng,
-                            currentRouteCoordinates
-                        );
+                        let minDst = getMinDistanceFromRoute(currentLat, currentLng, currentRouteCoordinates);
                         if (minDst > 0.035) {
                             alert("Rotadan çıkıldı! Rota yeniden hesaplanıyor...");
                             searchAndRoute(true);
@@ -322,7 +315,6 @@
             });
         }
 
-        window.startGpsTracking = startGpsTracking;
         startGpsTracking();
 
         function switchTab(tabId, element) {
@@ -389,7 +381,6 @@
             return { feature, lat, lon, distanceKm, source };
         }
 
-        // AKILLI DİNAMİK ARAMA: Hangi ildeysen orayı baz alır, başka il yazarsan onu arar
         function getSmartQueries(query) {
             const clean = query.trim().replace(/[,\/#!$%\^&\*;:{}=\-_`~()?]/g,"");
             const words = clean.split(/\s+/).filter(Boolean);
@@ -397,13 +388,10 @@
 
             let queries = [query];
             const lowerFull = clean.toLocaleLowerCase('tr-TR');
-            
-            // Türkiye'deki illerin tespiti için basit kontrol
             const commonCities = ['istanbul', 'izmir', 'ankara', 'bursa', 'antalya', 'adana', 'konya', 'trabzon', 'samsun', 'gaziantep', 'kocaeli', 'sultanbeyli'];
             let hasCityContext = commonCities.some(city => lowerFull.includes(city));
             
             if (!hasCityContext && currentCityName) {
-                // Kullanıcı başka şehir belirtmediyse, şu anki GPS ilini otomatik ekle
                 queries.push(clean + ' ' + currentCityName);
             }
 
